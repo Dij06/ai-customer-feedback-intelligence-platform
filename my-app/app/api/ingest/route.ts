@@ -29,10 +29,15 @@ export async function POST(req: Request) {
       });
     }
 
+    const feedbackText = `[${channel.toUpperCase()}] ${sender ? `From: ${sender} - ` : ""}${content}`;
     const feedback = await prisma.feedback.create({
       data: {
-        content: `[${channel.toUpperCase()}] ${sender ? `From: ${sender} - ` : ""}${content}`,
+        content: feedbackText,
+        text: feedbackText,
         source: channel.toUpperCase(),
+        sentiment: "NEUTRAL",
+        category: "Channel Ingestion",
+        urgency: false,
         workspaceId: workspaceId,
         userId: systemUser.id,
       },

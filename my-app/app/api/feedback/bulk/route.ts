@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import Groq from "groq-sdk";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
@@ -16,14 +19,14 @@ export async function POST(req: Request) {
 
     const { feedbacks, workspaceId } = await req.json();
 
-    if (!workspaceId || !Array.isArray(feedbacks) || feedbacks.length === 0) {
+    if (!Array.isArray(feedbacks) || feedbacks.length === 0) {
       return NextResponse.json(
-        { error: "Workspace ID and valid feedback items are required" },
+        { error: "Valid feedback items array is required" },
         { status: 400 }
       );
     }
 
-    // Database user check (clerkUserId field handle kar ke)
+    // Find or create database user for Clerk user
     let dbUser = await prisma.user.findFirst({
       where: {
         OR: [{ id: userId }, { clerkUserId: userId }],
@@ -32,36 +35,112 @@ export async function POST(req: Request) {
 
     if (!dbUser) {
       const email = user.emailAddresses[0]?.emailAddress || `${userId}@example.com`;
+      const name = `${user.firstName || ""} ${user.lastName || ""}`.trim() || "User";
       dbUser = await prisma.user.create({
         data: {
           clerkUserId: userId,
-          email: email,
-          name: `${user.firstName || ""} ${user.lastName || ""}`.trim() || "User",
+          email,
+          name,
         },
       });
     }
 
-    const dataToInsert = feedbacks.map((item: any) => {
-      const feedbackText = item.title || item.description || item.text || item.content || "No Feedback";
-      const extraDesc = item.description && item.title ? ` - ${item.description}` : "";
+    // Verify workspace exists or fallback to first workspace
+    let dbWorkspace = null;
+    if (workspaceId && workspaceId !== "undefined") {
+      dbWorkspace = await prisma.workspace.findUnique({
+        where: { id: workspaceId },
+      });
+    }
 
-      return {
-        content: `${feedbackText}${extraDesc}`,
-        source: "CSV",
-        workspaceId: workspaceId,
-        userId: dbUser.id,
-      };
+    if (!dbWorkspace) {
+      dbWorkspace = await prisma.workspace.findFirst();
+      if (!dbWorkspace) {
+        dbWorkspace = await prisma.workspace.create({
+          data: {
+            name: "Acme Corp Workspace",
+            slug: "acme-corp",
+          },
+        });
+      }
+    }
+
+    const activeWorkspaceId = dbWorkspace.id;
+
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "GROQ_API_KEY is not configured" },
+        { status: 500 }
+      );
+    }
+
+    const groq = new Groq({ apiKey });
+
+    // AI Processing via Groq
+    const analyzedFeedbacks = await Promise.all(
+      feedbacks.map(async (text: string) => {
+        try {
+          const completion = await groq.chat.completions.create({
+            messages: [
+              {
+                role: "user",
+                content: `Analyze this customer feedback and return ONLY a valid raw JSON object:
+{
+  "sentiment": "POSITIVE" | "NEUTRAL" | "NEGATIVE",
+  "urgency": true,
+  "category": "short category name"
+}
+
+Feedback: "${text}"`,
+              },
+            ],
+            model: "llama-3.1-8b-instant",
+            response_format: { type: "json_object" },
+          });
+
+          const resultText = completion.choices[0]?.message?.content || "{}";
+          const aiData = JSON.parse(resultText);
+
+          return {
+            content: text,
+            text: text,
+            source: "CSV",
+            userId: dbUser.id,
+            sentiment: aiData.sentiment || "NEUTRAL",
+            urgency: Boolean(aiData.urgency),
+            category: aiData.category || "General",
+            workspaceId: activeWorkspaceId,
+          };
+        } catch (err) {
+          return {
+            content: text,
+            text: text,
+            source: "CSV",
+            userId: dbUser.id,
+            sentiment: "NEUTRAL",
+            urgency: false,
+            category: "General",
+            workspaceId: activeWorkspaceId,
+          };
+        }
+      })
+    );
+
+    // Database save via Prisma
+    const savedRecords = await (prisma as any).feedback.createMany({
+      data: analyzedFeedbacks,
     });
 
-    const result = await prisma.feedback.createMany({
-      data: dataToInsert as any[],
+    return NextResponse.json({
+      success: true,
+      count: savedRecords.count,
+      data: analyzedFeedbacks,
     });
-
-    return NextResponse.json({ success: true, count: result.count });
-  } catch (err: any) {
-    console.error("Bulk upload error details:", err);
+  } catch (error: any) {
+    console.error("BULK_INGESTION_ERROR:", error);
     return NextResponse.json(
-      { error: "Failed to upload feedback batch", details: err?.message },
+      { error: "Bulk Ingestion Failed", details: error?.message },
       { status: 500 }
     );
   }

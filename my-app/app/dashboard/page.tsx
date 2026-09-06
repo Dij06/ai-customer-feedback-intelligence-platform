@@ -7,8 +7,7 @@ import FeedbackInbox from "@/components/FeedbackInbox";
 import WorkspaceSwitcher from "@/components/WorkspaceSwitcher";
 import Analytics from "@/components/dashboard/Analytics"; 
 import AiInsightsCard from "@/components/dashboard/AilnsightsCard";
-
-<AiInsightsCard />
+import AskLoopChat from "@/components/dashboard/AskLoopChat"; 
 
 export default function DashboardPage() {
   const [workspaces, setWorkspaces] = useState<any[]>([]);
@@ -43,9 +42,19 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Analytics Graph Section (Full Width Top) */}
+      {/* Analytics Graph Section */}
       <div className="w-full">
         <Analytics workspaceId={currentWorkspace?.id} />
+      </div>
+
+      {/* AI Insights Section */}
+      <div className="w-full">
+        <AiInsightsCard />
+      </div>
+
+      {/* Ask Loop AI Assistant Section */}
+      <div className="w-full">
+        <AskLoopChat workspaceId={currentWorkspace?.id} />
       </div>
 
       {/* Main Form & Inbox Grid */}

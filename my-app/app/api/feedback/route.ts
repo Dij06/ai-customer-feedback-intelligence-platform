@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import Groq from "groq-sdk";
 
 export async function GET(req: Request) {
   try {
@@ -29,9 +30,24 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { title, description, workspaceId } = body;
+    const {
+      title,
+      description,
+      workspaceId,
+      text: bodyText,
+      source: bodySource,
+      sentiment: bodySentiment,
+      category: bodyCategory,
+      urgency: bodyUrgency,
+    } = body;
 
-    if (!title && !description) {
+    const rawText =
+      bodyText ||
+      (title && description && title !== description
+        ? `${title}: ${description}`
+        : description || title);
+
+    if (!rawText) {
       return NextResponse.json(
         { message: "Missing required feedback content" },
         { status: 400 }
@@ -100,15 +116,55 @@ export async function POST(req: Request) {
       }
     }
 
-    const contentText = title && description && title !== description 
-      ? `${title}: ${description}` 
-      : (description || title);
+    // Sentiment & AI analysis
+    let sentiment = bodySentiment;
+    let category = bodyCategory;
+    let urgency = bodyUrgency;
+
+    if (!sentiment || !category || urgency === undefined) {
+      try {
+        const apiKey = process.env.GROQ_API_KEY;
+        if (apiKey) {
+          const groq = new Groq({ apiKey });
+          const completion = await groq.chat.completions.create({
+            messages: [
+              {
+                role: "user",
+                content: `Analyze this customer feedback and return ONLY a valid raw JSON object:
+{
+  "sentiment": "POSITIVE" | "NEUTRAL" | "NEGATIVE",
+  "urgency": true,
+  "category": "short category name"
+}
+
+Feedback: "${rawText}"`,
+              },
+            ],
+            model: "llama-3.1-8b-instant",
+            response_format: { type: "json_object" },
+          });
+
+          const resultText = completion.choices[0]?.message?.content || "{}";
+          const aiData = JSON.parse(resultText);
+
+          sentiment = sentiment || aiData.sentiment || "NEUTRAL";
+          category = category || aiData.category || "General";
+          urgency = urgency !== undefined ? Boolean(urgency) : Boolean(aiData.urgency);
+        }
+      } catch (err) {
+        console.error("AI Analysis warning during feedback creation:", err);
+      }
+    }
 
     const newFeedback = await prisma.feedback.create({
       data: {
-        content: contentText,
-        source: "IN_APP",
-        workspaceId: dbWorkspace.id,
+        content: rawText,
+        text: rawText,
+        source: bodySource || "IN_APP",
+        sentiment: sentiment || "NEUTRAL",
+        category: category || "General",
+        urgency: urgency !== undefined ? Boolean(urgency) : false,
+        workspaceId: dbWorkspace ? dbWorkspace.id : null,
         userId: dbUser.id,
       },
     });
@@ -122,4 +178,5 @@ export async function POST(req: Request) {
     );
   }
 }
-
+
+

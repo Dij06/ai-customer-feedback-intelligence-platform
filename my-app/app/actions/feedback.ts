@@ -35,6 +35,9 @@ export async function submitFeedbackAction(data: FeedbackFormValues) {
     await prisma.feedback.create({
       data: {
         content: validated.data.content,
+        text: validated.data.content,
+        category: "General",
+        urgency: false,
         sentiment: validated.data.sentiment,
         source: validated.data.source,
         workspaceId: defaultWorkspace.id,

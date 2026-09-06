@@ -59,10 +59,10 @@ model Feedback {
   userId      String
   workspaceId String?
   createdAt   DateTime  @default(now())
-  sentiment   String
-  urgency     Boolean   @default(false)
-  text        String
-  category    String
+  sentiment   String?
+  urgency     Boolean?  @default(false)
+  text        String?
+  category    String?
   user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace Workspace?  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 }

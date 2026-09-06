@@ -11,7 +11,6 @@ export default function Home() {
             Customer Feedback Intelligence
           </h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-            Feedback create karein aur real-time inbox mein view karein.
           </p>
         </header>
 
