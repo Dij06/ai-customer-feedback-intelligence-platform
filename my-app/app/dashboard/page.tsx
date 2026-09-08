@@ -7,7 +7,8 @@ import FeedbackInbox from "@/components/FeedbackInbox";
 import WorkspaceSwitcher from "@/components/WorkspaceSwitcher";
 import Analytics from "@/components/dashboard/Analytics"; 
 import AiInsightsCard from "@/components/dashboard/AilnsightsCard";
-import AskLoopChat from "@/components/dashboard/AskLoopChat"; 
+import AskLoopChat from "@/components/dashboard/AskLoopChat";
+import VocReportCard from "@/components/dashboard/VocReportCard"; // Day 16 Import
 
 export default function DashboardPage() {
   const [workspaces, setWorkspaces] = useState<any[]>([]);
@@ -47,9 +48,14 @@ export default function DashboardPage() {
         <Analytics workspaceId={currentWorkspace?.id} />
       </div>
 
+      {/* Day 16: Voice of Customer Executive Report */}
+      <div className="w-full">
+        <VocReportCard workspaceId={currentWorkspace?.id} />
+      </div>
+
       {/* AI Insights Section */}
       <div className="w-full">
-        <AiInsightsCard />
+        <AiInsightsCard workspaceId={currentWorkspace?.id} />
       </div>
 
       {/* Ask Loop AI Assistant Section */}
