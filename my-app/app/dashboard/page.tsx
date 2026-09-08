@@ -8,7 +8,8 @@ import WorkspaceSwitcher from "@/components/WorkspaceSwitcher";
 import Analytics from "@/components/dashboard/Analytics"; 
 import AiInsightsCard from "@/components/dashboard/AilnsightsCard";
 import AskLoopChat from "@/components/dashboard/AskLoopChat";
-import VocReportCard from "@/components/dashboard/VocReportCard"; // Day 16 Import
+import VocReportCard from "@/components/dashboard/VocReportCard";
+import ExportPdfButton from "@/components/dashboard/ExportPdfButton"; // Day 17 Import
 
 export default function DashboardPage() {
   const [workspaces, setWorkspaces] = useState<any[]>([]);
@@ -38,9 +39,14 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold">Customer Feedback Intelligence</h1>
           <p className="text-sm text-gray-500">Manage feedback, analytics, and bulk import.</p>
         </div>
-        {WorkspaceSwitcher && (
-          <WorkspaceSwitcher onSelectWorkspace={(ws: any) => setCurrentWorkspace(ws)} />
-        )}
+        
+        {/* Action Buttons */}
+        <div className="flex items-center gap-3">
+          <ExportPdfButton />
+          {WorkspaceSwitcher && (
+            <WorkspaceSwitcher onSelectWorkspace={(ws: any) => setCurrentWorkspace(ws)} />
+          )}
+        </div>
       </div>
 
       {/* Analytics Graph Section */}
@@ -58,13 +64,13 @@ export default function DashboardPage() {
         <AiInsightsCard workspaceId={currentWorkspace?.id} />
       </div>
 
-      {/* Ask Loop AI Assistant Section */}
+      {/* Ask Loop AI Assistant Section (Print time par form controls auto hide ho jayenge) */}
       <div className="w-full">
         <AskLoopChat workspaceId={currentWorkspace?.id} />
       </div>
 
       {/* Main Form & Inbox Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 print:hidden">
         <div className="space-y-6">
           <FeedbackForm workspaceId={currentWorkspace?.id} />
           <CsvUpload workspaceId={currentWorkspace?.id} />
