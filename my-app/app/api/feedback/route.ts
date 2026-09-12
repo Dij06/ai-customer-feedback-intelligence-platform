@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { analyzeFeedbackWithAI } from '@/lib/ai';
+import { analyzeFeedbackWithAI, analyzeFeedbackWithLLM } from '@/lib/ai';
 import {
   getWorkspaceContext,
   canIngestFeedback,
@@ -136,8 +136,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Run AI analysis
-    const aiAnalysis = analyzeFeedbackWithAI(content);
+    // Run AI analysis with live cloud LLM (Groq / Gemini / Fallback)
+    const aiAnalysis = await analyzeFeedbackWithLLM(content);
 
     const feedback = await prisma.feedback.create({
       data: {

@@ -743,3 +743,89 @@ export function generateFullSeedDataset(): SeedFeedbackItem[] {
 
   return fullList;
 }
+
+export interface DemoTheme {
+  name: string;
+  description: string;
+  color: string;
+  keywords: string[];
+}
+
+export const DEMO_THEMES: DemoTheme[] = [
+  {
+    name: 'Onboarding & Workspace Setup',
+    description: 'Feedback related to team invitation, workspace creation, and initial setup UX.',
+    color: '#6366f1', // Indigo
+    keywords: ['onboarding', 'invite', 'workspace', 'setup', 'tutorial', 'team', 'sign up', 'member'],
+  },
+  {
+    name: 'Billing & Invoicing',
+    description: 'Inquiries and issues concerning subscription charges, invoices, Stripe, and refunds.',
+    color: '#ec4899', // Pink
+    keywords: ['billing', 'invoice', 'charge', 'refund', 'subscription', 'price', 'stripe', 'tier', 'payment'],
+  },
+  {
+    name: 'Performance & Latency',
+    description: 'Platform loading speed, API latency, page responsiveness, and UI freeze complaints.',
+    color: '#f59e0b', // Amber
+    keywords: ['slow', 'speed', 'latency', 'loading', 'freeze', 'lag', 'fast', 'quick', 'timeout', 'performance'],
+  },
+  {
+    name: 'Authentication & SSO',
+    description: 'SAML/SSO integration, Google OAuth, password resets, and session management.',
+    color: '#8b5cf6', // Violet
+    keywords: ['sso', 'saml', 'google', 'login', 'auth', 'password', 'session', 'blocked', 'access'],
+  },
+  {
+    name: 'Export & Reporting',
+    description: 'Data exports (CSV, PDF), analytics charts, scheduled reports, and download issues.',
+    color: '#10b981', // Emerald
+    keywords: ['export', 'csv', 'pdf', 'report', 'chart', 'analytics', 'download', 'compliance', 'dataset'],
+  },
+  {
+    name: 'Mobile Experience & UI',
+    description: 'Mobile responsiveness, dark mode rendering, layout bugs, and navigation ease.',
+    color: '#06b6d4', // Cyan
+    keywords: ['mobile', 'dark mode', 'responsive', 'ui', 'ux', 'button', 'layout', 'design', 'view', 'phone'],
+  },
+  {
+    name: 'Search & Filtering',
+    description: 'Full-text query accuracy, inbox filtering, pagination speed, and search indexing.',
+    color: '#3b82f6', // Blue
+    keywords: ['search', 'filter', 'inbox', 'query', 'pagination', 'find', 'sort', 'indexing'],
+  },
+  {
+    name: 'Integrations & Webhooks',
+    description: 'Third-party integrations, webhook delivery, Slack bots, and API reliability.',
+    color: '#14b8a6', // Teal
+    keywords: ['webhook', 'integration', 'slack', 'api', 'payload', 'rate limit', 'endpoint', 'sync'],
+  },
+];
+
+export function getMatchingThemesForFeedback(content: string, category?: string): { themeName: string; confidence: number }[] {
+  const text = content.toLowerCase();
+  const matched: { themeName: string; confidence: number }[] = [];
+
+  for (const theme of DEMO_THEMES) {
+    let hits = 0;
+    for (const kw of theme.keywords) {
+      if (text.includes(kw.toLowerCase())) {
+        hits++;
+      }
+    }
+    if (category && theme.name.toLowerCase().includes(category.toLowerCase())) {
+      hits += 2;
+    }
+    if (hits > 0) {
+      const confidence = Math.min(0.99, Number((0.55 + hits * 0.15).toFixed(2)));
+      matched.push({ themeName: theme.name, confidence });
+    }
+  }
+
+  if (matched.length === 0) {
+    matched.push({ themeName: 'Onboarding & Workspace Setup', confidence: 0.65 });
+  }
+
+  return matched.sort((a, b) => b.confidence - a.confidence).slice(0, 3);
+}
+

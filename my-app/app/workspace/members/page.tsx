@@ -151,14 +151,14 @@ export default function WorkspaceMembersPage() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl sm:text-3xl font-extrabold text-[#1A1F36] dark:text-white tracking-tight">
-                Workspace Team & Roles
+                Team &amp; Permissions
               </h1>
               <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-500/10 dark:text-purple-400 dark:border-purple-500/20">
                 {workspace?.name || 'Workspace'}
               </span>
             </div>
             <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mt-1">
-              Manage authorized team members and role-based permissions (Admin, Analyst, Viewer).
+              Manage who has access to this workspace and what they can do (Admin, Analyst, Viewer).
             </p>
           </div>
 
@@ -210,17 +210,17 @@ export default function WorkspaceMembersPage() {
             <span className="text-[10px] px-2 py-0.5 rounded bg-purple-50 text-purple-700 font-semibold border border-purple-200 dark:bg-purple-500/10 dark:text-purple-300 dark:border-purple-500/20">Full Access</span>
           </div>
           <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-            Can invite/remove members, assign roles, delete feedback records, ingest data, and triage all items.
+            Can invite and remove teammates, assign roles, delete feedback, and configure workspace settings.
           </p>
         </div>
 
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/60 border border-blue-200 dark:border-blue-500/20 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400">Analyst</span>
-            <span className="text-[10px] px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-semibold border border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20">Read & Write</span>
+            <span className="text-[10px] px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-semibold border border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20">Read &amp; Write</span>
           </div>
           <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-            Can ingest feedback (Single + CSV), triage workflow (<code className="text-blue-700 dark:text-blue-300 font-mono font-semibold">NEW → ACTIONED</code>), and run AI reclassification.
+            Can add feedback, upload CSV files, change status (New, Reviewed, Actioned), and run AI analysis.
           </p>
         </div>
 
@@ -230,7 +230,7 @@ export default function WorkspaceMembersPage() {
             <span className="text-[10px] px-2 py-0.5 rounded bg-amber-50 text-amber-700 font-semibold border border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20">Read-Only</span>
           </div>
           <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-            Read-only access to Inbox, Analytics, and Reports. All write or delete operations return <code className="text-amber-700 dark:text-amber-300 font-mono font-semibold">403 Forbidden</code>.
+            Can browse and search feedback, view charts, and download reports. Editing actions are restricted.
           </p>
         </div>
       </div>

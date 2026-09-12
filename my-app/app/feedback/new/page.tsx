@@ -80,16 +80,16 @@ export default function NewFeedbackPage() {
             ← Back to Feedback Inbox
           </Link>
           <h1 className="text-3xl font-extrabold text-[#1A1F36] dark:text-white tracking-tight">
-            Ingest Customer Feedback
+            Add Customer Feedback
           </h1>
           <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mt-1">
-            Submit feedback from any customer channel. The system automatically performs sentiment scoring, category routing, and urgency classification.
+            Type or paste customer feedback from any channel. LOOP will automatically detect the sentiment, category, and urgency for you.
           </p>
         </div>
 
         {/* Quick Fill Presets */}
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-wrap items-center gap-2.5">
-          <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Example Templates:</span>
+          <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Try an Example:</span>
           <button
             type="button"
             onClick={() => loadSample('praise')}
@@ -125,14 +125,14 @@ export default function NewFeedbackPage() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
-                  Feedback Content *
+                  Customer Feedback *
                 </label>
                 <textarea
                   required
                   rows={5}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  placeholder="Paste verbatim customer feedback, email thread, app review, or support conversation..."
+                  placeholder="Paste what the customer said (e.g. an email, review, or chat message)..."
                   className="w-full p-3.5 text-sm bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-[#2D68FF] focus:bg-white dark:focus:bg-slate-950 transition-all leading-relaxed"
                 />
               </div>
@@ -140,7 +140,7 @@ export default function NewFeedbackPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
-                    Channel Source
+                    Where did this come from?
                   </label>
                   <select
                     value={source}
@@ -196,24 +196,24 @@ export default function NewFeedbackPage() {
                   disabled={submitting}
                   className="px-5 py-2.5 text-xs sm:text-sm font-semibold text-white bg-[#2D68FF] hover:bg-blue-600 rounded-xl shadow-md shadow-[#2D68FF]/20 transition-all flex items-center gap-2"
                 >
-                  {submitting ? 'Ingesting...' : 'Ingest Feedback Entry'}
+                  {submitting ? 'Saving...' : 'Save Feedback'}
                 </button>
               </div>
             </form>
           </div>
 
-          {/* Real-Time Triage Assessment Preview Panel */}
+          {/* Real-Time Live Preview Panel */}
           <div className="space-y-4">
             <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-4">
               <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
                 <span className="w-2 h-2 rounded-full bg-[#2D68FF]" />
-                <h3 className="text-xs font-bold text-slate-900 dark:text-slate-200 uppercase tracking-wider">Classification Preview</h3>
+                <h3 className="text-xs font-bold text-slate-900 dark:text-slate-200 uppercase tracking-wider">Live AI Preview</h3>
               </div>
 
               {liveAnalysis ? (
                 <div className="space-y-3.5 text-xs">
                   <div>
-                    <span className="text-slate-500 dark:text-slate-400 font-medium block mb-1">Sentiment Polarity</span>
+                    <span className="text-slate-500 dark:text-slate-400 font-medium block mb-1">Sentiment</span>
                     <span
                       className={`inline-block font-semibold px-2.5 py-1 rounded-md border ${
                         liveAnalysis.sentiment === 'Positive'
@@ -228,14 +228,14 @@ export default function NewFeedbackPage() {
                   </div>
 
                   <div>
-                    <span className="text-slate-500 dark:text-slate-400 font-medium block mb-1">Assigned Topic</span>
+                    <span className="text-slate-500 dark:text-slate-400 font-medium block mb-1">Category</span>
                     <span className="inline-block font-semibold px-2.5 py-1 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30">
                       {liveAnalysis.category}
                     </span>
                   </div>
 
                   <div>
-                    <span className="text-slate-500 dark:text-slate-400 font-medium block mb-1">Triage Priority</span>
+                    <span className="text-slate-500 dark:text-slate-400 font-medium block mb-1">Urgency</span>
                     <span
                       className={`inline-block font-semibold px-2.5 py-1 rounded-md border ${
                         liveAnalysis.urgency === 'High'
@@ -248,16 +248,16 @@ export default function NewFeedbackPage() {
                   </div>
 
                   <div>
-                    <span className="text-slate-500 dark:text-slate-400 font-medium block mb-1">Key Takeaway</span>
-                    <p className="text-slate-800 dark:text-slate-300 italic bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 font-medium">
+                    <span className="text-slate-500 dark:text-slate-400 font-medium block mb-1">Quick Summary</span>
+                    <p className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800/80 text-slate-700 dark:text-slate-300 italic">
                       &ldquo;{liveAnalysis.summary}&rdquo;
                     </p>
                   </div>
                 </div>
               ) : (
-                <p className="text-xs text-slate-400 dark:text-slate-500 py-6 text-center">
-                  Enter feedback content in the form to see automatic sentiment scoring, topic routing, and summary extraction.
-                </p>
+                <div className="py-8 text-center text-slate-400 text-xs font-medium">
+                  Start typing feedback on the left to see the live AI preview.
+                </div>
               )}
             </div>
           </div>

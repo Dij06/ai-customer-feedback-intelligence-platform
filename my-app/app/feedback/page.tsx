@@ -247,11 +247,11 @@ export default function FeedbackInboxPage() {
               </h1>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20 flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                Live Feed
+                Live Stream
               </span>
             </div>
             <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mt-1">
-              Real-time multi-channel customer feedback stream with automated sentiment scoring & topic routing.
+              All your customer feedback in one place. We automatically detect sentiment, topics, and urgency levels.
             </p>
           </div>
 
@@ -261,7 +261,7 @@ export default function FeedbackInboxPage() {
               disabled={seeding}
               className="px-3.5 py-2 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg shadow-xs transition-all"
             >
-              <span>{seeding ? 'Seeding...' : 'Seed Demo Dataset'}</span>
+              <span>{seeding ? 'Adding Data...' : 'Add Sample Data'}</span>
             </button>
 
           <Link
@@ -271,7 +271,7 @@ export default function FeedbackInboxPage() {
             <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
             </svg>
-            <span>Import CSV</span>
+            <span>Upload CSV</span>
           </Link>
 
           <Link
@@ -282,7 +282,7 @@ export default function FeedbackInboxPage() {
                 : 'bg-blue-600 hover:bg-blue-700'
             }`}
           >
-            <span>+ Submit Feedback</span>
+            <span>+ Add Feedback</span>
           </Link>
         </div>
       </div>
@@ -306,7 +306,7 @@ export default function FeedbackInboxPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <span>
-            <strong>Viewer Mode (Read-Only):</strong> You have viewing access to feedback in <strong>{context.workspaceName}</strong>. Status changes, reclassification, and deletions are restricted to Admins and Analysts.
+            <strong>Viewer Mode (Read-Only):</strong> You can browse and search feedback in <strong>{context.workspaceName}</strong>. Editing, status changes, and deletions are reserved for Admins and Analysts.
           </span>
         </div>
       )}
@@ -318,7 +318,7 @@ export default function FeedbackInboxPage() {
           <p className="text-3xl font-extrabold text-slate-900 dark:text-white mt-1.5">{stats.total}</p>
         </div>
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200/90 dark:border-slate-800 shadow-xs">
-          <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Positive Ratio</p>
+          <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Positive Feedback</p>
           <p className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1.5">{stats.positiveRatio}%</p>
         </div>
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200/90 dark:border-slate-800 shadow-xs">
@@ -326,7 +326,7 @@ export default function FeedbackInboxPage() {
           <p className="text-3xl font-extrabold text-rose-600 dark:text-rose-400 mt-1.5">{stats.highUrgency}</p>
         </div>
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200/90 dark:border-slate-800 shadow-xs">
-          <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Negative Reviews</p>
+          <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Negative Issues</p>
           <p className="text-3xl font-extrabold text-amber-600 dark:text-amber-400 mt-1.5">{stats.negative}</p>
         </div>
       </div>
@@ -336,7 +336,7 @@ export default function FeedbackInboxPage() {
         <div className="w-full md:w-80 relative">
           <input
             type="text"
-            placeholder="Search feedback text, email, summary..."
+            placeholder="Search feedback text, email, customer name..."
             value={search}
             onChange={(e) => handleFilterChange(setSearch, e.target.value)}
             className="w-full pl-9 pr-4 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-slate-950 transition-all"
@@ -422,7 +422,7 @@ export default function FeedbackInboxPage() {
 
       {/* Feedback Feed */}
       {loading ? (
-        <div className="text-center py-20 text-slate-400 font-medium">Loading customer feedback items...</div>
+        <div className="text-center py-20 text-slate-400 font-medium">Loading feedback...</div>
       ) : feedbacks.length === 0 ? (
         <div className="text-center py-16 px-4 rounded-2xl border border-dashed border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-900/40">
           <p className="text-slate-500 dark:text-slate-400 font-medium">No feedback items found matching your filters.</p>
@@ -431,7 +431,7 @@ export default function FeedbackInboxPage() {
               onClick={handleSeedData}
               className="px-4 py-2 text-xs font-semibold text-blue-600 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 rounded-lg hover:bg-blue-100"
             >
-              Seed Sample Feedback Data
+              Add Sample Feedback Data
             </button>
           </div>
         </div>
@@ -473,7 +473,7 @@ export default function FeedbackInboxPage() {
                 {item.summary && (
                   <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-100 dark:border-slate-800/80">
                     <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-0.5">
-                      Key Takeaway
+                      Summary
                     </span>
                     <p className="text-xs text-slate-700 dark:text-slate-300 italic font-medium">
                       &ldquo;{item.summary}&rdquo;
@@ -499,7 +499,7 @@ export default function FeedbackInboxPage() {
                   onClick={() => handleReclassify(item.id)}
                   disabled={reclassifyingId === item.id || context.userRole === 'VIEWER'}
                   className="px-3 py-1.5 text-xs font-semibold text-[#2D68FF] dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-700/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 rounded-lg disabled:opacity-50 transition-all flex items-center gap-1.5"
-                  title="Re-run classification"
+                  title="Re-run AI analysis"
                 >
                   <svg className={`w-3 h-3 ${reclassifyingId === item.id ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -586,7 +586,7 @@ export default function FeedbackInboxPage() {
             </div>
 
             <div className="space-y-2">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Raw Feedback Content</h3>
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Customer Feedback</h3>
               <p className="text-sm font-medium text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800/80 whitespace-pre-wrap leading-relaxed">
                 {selectedFeedback.content}
               </p>
@@ -594,7 +594,7 @@ export default function FeedbackInboxPage() {
 
             <div className="grid grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-950/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800/60 text-xs">
               <div>
-                <span className="text-slate-500 dark:text-slate-400">Theme / Category:</span>
+                <span className="text-slate-500 dark:text-slate-400">Category:</span>
                 <span className="ml-2 font-semibold text-slate-800 dark:text-slate-200">{selectedFeedback.category || 'General'}</span>
               </div>
               <div>
@@ -610,7 +610,7 @@ export default function FeedbackInboxPage() {
                 <span className="ml-2 font-semibold text-slate-800 dark:text-slate-200 font-mono">{selectedFeedback.customerEmail || 'N/A'}</span>
               </div>
               <div className="col-span-2">
-                <span className="text-slate-500 dark:text-slate-400">AI Summary:</span>
+                <span className="text-slate-500 dark:text-slate-400">Quick Summary:</span>
                 <p className="mt-1 font-medium text-slate-800 dark:text-slate-300 italic">{selectedFeedback.summary || 'N/A'}</p>
               </div>
             </div>
@@ -622,7 +622,7 @@ export default function FeedbackInboxPage() {
                   disabled={reclassifyingId === selectedFeedback.id || context.userRole === 'VIEWER'}
                   className="px-3.5 py-2 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/70 border border-blue-200 dark:border-blue-700/60 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/60 disabled:opacity-50 flex items-center gap-1.5"
                 >
-                  {reclassifyingId === selectedFeedback.id ? 'Re-classifying...' : 'Re-classify with AI'}
+                  {reclassifyingId === selectedFeedback.id ? 'Analyzing...' : 'Re-analyze with AI'}
                 </button>
 
                 <div className="flex items-center gap-2">

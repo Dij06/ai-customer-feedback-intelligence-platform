@@ -36,9 +36,12 @@ export function Navbar() {
   }, []);
 
   const navItems = [
-    { label: 'Feedback Inbox', href: '/feedback' },
-    { label: 'Analytics Dashboard', href: '/dashboard' },
-    { label: 'Team & RBAC', href: '/workspace/members' },
+    { label: 'Inbox', href: '/feedback' },
+    { label: 'Trends', href: '/trends' },
+    { label: 'Ask AI', href: '/ask' },
+    { label: 'Reports', href: '/reports' },
+    { label: 'Dashboard', href: '/dashboard' },
+    { label: 'Team', href: '/workspace/members' },
   ];
 
   const getRoleBadgeColor = () => {

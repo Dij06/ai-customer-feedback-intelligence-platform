@@ -200,7 +200,7 @@ export default function BulkImportPage() {
   return (
     <div className="bg-[#f8fafc] dark:bg-[#0b0f19] min-h-[calc(100vh-4rem)] transition-colors py-8">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-        {/* Header exact match to Image 2 */}
+        {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <Link
@@ -210,10 +210,10 @@ export default function BulkImportPage() {
               ← Back to Feedback Inbox
             </Link>
             <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              Bulk CSV Ingestion
+              Upload Feedback CSV
             </h1>
             <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 font-normal">
-              Import hundreds of customer feedback entries from any CRM or export format with automatic AI sentiment scoring.
+              Upload a spreadsheet or CSV export of customer reviews, support tickets, or emails. We&apos;ll automatically organize and score them with AI.
             </p>
           </div>
 
@@ -232,7 +232,7 @@ export default function BulkImportPage() {
           </div>
         )}
 
-        {/* Upload Dropzone - Exact Match to Image 2 */}
+        {/* Upload Dropzone */}
         <div className="p-12 sm:p-14 rounded-2xl bg-white dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 text-center transition-all shadow-xs">
           <input
             type="file"
@@ -251,7 +251,7 @@ export default function BulkImportPage() {
               Click to upload your CSV file
             </span>
             <span className="text-xs text-slate-500 dark:text-slate-400 block mt-1">
-              Supports CSVs from Zendesk, Intercom, App Store, Typeform, or custom exports with smart column mapping.
+              Works with exports from Zendesk, Intercom, App Store, Typeform, Excel, or Google Sheets.
             </span>
           </label>
         </div>
@@ -262,10 +262,10 @@ export default function BulkImportPage() {
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Map Your CSV Columns
+                  Match Your CSV Columns
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  We automatically detected matching fields. Adjust any column dropdown below if needed.
+                  We picked the best columns for you. You can adjust any of them below if needed.
                 </p>
               </div>
               <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">

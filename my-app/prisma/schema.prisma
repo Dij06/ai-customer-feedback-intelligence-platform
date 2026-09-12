@@ -22,6 +22,7 @@ model User {
   role        String            @default("USER")
   feedbacks   Feedback[]
   memberships WorkspaceMember[]
+  reports     Report[]
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @default(now()) @updatedAt
 }
@@ -32,6 +33,8 @@ model Workspace {
   slug      String            @unique
   members   WorkspaceMember[]
   feedbacks Feedback[]
+  themes    Theme[]
+  reports   Report[]
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
 }
@@ -47,24 +50,73 @@ model WorkspaceMember {
   @@unique([userId, workspaceId])
 }
 
+model Theme {
+  id            String          @id @default(uuid())
+  name          String
+  description   String?
+  color         String          @default("#3b82f6")
+  workspaceId   String
+  workspace     Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  feedbackThemes FeedbackTheme[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@unique([name, workspaceId])
+}
+
+model FeedbackTheme {
+  id         String   @id @default(uuid())
+  feedbackId String
+  themeId    String
+  confidence Float    @default(1.0)
+  feedback   Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  theme      Theme    @relation(fields: [themeId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([feedbackId, themeId])
+}
+
+model Embedding {
+  id         String   @id @default(uuid())
+  feedbackId String   @unique
+  vector     String   // Serialized float vector or dense embeddings representation
+  feedback   Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+}
+
 model Feedback {
-  id            String     @id @default(cuid())
-  content       String
-  source        String     @default("Web Form")
-  sentiment     String?    // Positive, Neutral, Negative
-  sentimentScore Float?    @default(0.0)
-  category      String?    // Performance, Bug, Feature Request, UI/UX, Billing, General
-  urgency       String?    @default("Medium") // High, Medium, Low
-  status        String?    @default("NEW")    // NEW, IN_REVIEW, ACTIONED
-  customerName  String?
-  customerEmail String?
-  summary       String?
-  tags          String[]   @default([])
-  createdAt     DateTime   @default(now())
-  userId        String?
-  workspaceId   String?
-  user          User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspace     Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id             String          @id @default(cuid())
+  content        String
+  source         String          @default("Web Form")
+  sentiment      String?         // Positive, Neutral, Negative
+  sentimentScore Float?          @default(0.0)
+  category       String?         // Performance, Bug, Feature Request, UI/UX, Billing, General
+  urgency        String?         @default("Medium") // High, Medium, Low
+  status         String?         @default("NEW")    // NEW, REVIEWED, ACTIONED
+  customerName   String?
+  customerEmail  String?
+  summary        String?
+  tags           String[]        @default([])
+  createdAt      DateTime        @default(now())
+  userId         String?
+  workspaceId    String?
+  user           User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace      Workspace?      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  feedbackThemes FeedbackTheme[]
+  embedding      Embedding?
+}
+
+model Report {
+  id          String    @id @default(uuid())
+  title       String
+  periodStart DateTime?
+  periodEnd   DateTime?
+  contentJson String    // JSON containing summary, topThemes, verbatimQuotes, recommendedActions, stats
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  generatedBy String?
+  user        User?     @relation(fields: [generatedBy], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
 }
 
 model AnalyticsReport {

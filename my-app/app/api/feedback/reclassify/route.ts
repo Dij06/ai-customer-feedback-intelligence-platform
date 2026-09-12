@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { analyzeFeedbackWithAI } from '@/lib/ai';
+import { analyzeFeedbackWithLLM } from '@/lib/ai';
 import { getWorkspaceContext, canTriageFeedback, forbiddenResponse } from '@/lib/rbac';
 
 export async function POST(req: NextRequest) {
@@ -33,8 +33,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Re-run AI analysis
-    const aiAnalysis = analyzeFeedbackWithAI(existingFeedback.content);
+    // Re-run AI analysis using live cloud AI
+    const aiAnalysis = await analyzeFeedbackWithLLM(existingFeedback.content);
 
     const updated = await prisma.feedback.update({
       where: { id },
