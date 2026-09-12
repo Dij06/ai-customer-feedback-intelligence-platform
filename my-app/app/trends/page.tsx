@@ -174,7 +174,7 @@ export default function TrendsPage() {
               {filter === 'ALL'
                 ? 'All Topics'
                 : filter === 'SURGES'
-                ? '⚡ Surges & Growth'
+                ? 'Surges & Growth'
                 : filter === 'POSITIVE'
                 ? 'Positive Sentiment'
                 : 'Negative Concerns'}

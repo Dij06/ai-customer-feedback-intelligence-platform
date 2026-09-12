@@ -7,7 +7,7 @@ const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
 const prisma = new PrismaClient({ adapter })
 
 async function main() {
-  console.log('🚀 Seeding comprehensive multi-tenant dataset (Themes, 125+ Feedbacks, Embeddings & Reports)...')
+  console.log('Seeding multi-tenant dataset (Themes, 125+ Feedbacks, Embeddings & Reports)...')
 
   // 1. Create / Upsert Workspaces
   const acmeWorkspace = await prisma.workspace.upsert({
@@ -28,7 +28,7 @@ async function main() {
     },
   })
 
-  console.log(`✅ Workspaces ready: Acme Corp (${acmeWorkspace.id}) & Beta Labs (${betaWorkspace.id})`)
+  console.log(`Workspaces ready: Acme Corp (${acmeWorkspace.id}) & Beta Labs (${betaWorkspace.id})`)
 
   // 2. Create / Upsert Demo RBAC Users for Acme Corp
   const createdUsers: Record<string, string> = {}
@@ -62,7 +62,7 @@ async function main() {
     })
   }
 
-  console.log('✅ RBAC Users configured: Admin, Analyst, and Viewer')
+  console.log('RBAC Users configured: Admin, Analyst, and Viewer')
 
   // 3. Upsert Enterprise Themes for Acme Corp
   const themeMap: Record<string, string> = {}
@@ -88,7 +88,7 @@ async function main() {
     themeMap[theme.name] = createdTheme.id
   }
 
-  console.log(`✅ ${DEMO_THEMES.length} Themes configured for Acme Corp`)
+  console.log(`${DEMO_THEMES.length} Themes configured for Acme Corp`)
 
   // 4. Clear existing feedback & join relations for Acme Corp
   await prisma.feedbackTheme.deleteMany({
@@ -153,7 +153,7 @@ async function main() {
     })
   }
 
-  console.log(`✅ Successfully seeded ${rawDataset.length} feedback items with themes & embeddings for Acme Corp`)
+  console.log(`Successfully seeded ${rawDataset.length} feedback items with themes & embeddings for Acme Corp`)
 
   // 6. Pre-seed a sample Voice-of-Customer (VoC) Report
   await prisma.report.deleteMany({
@@ -250,7 +250,7 @@ async function main() {
     },
   })
 
-  console.log('✅ Sample Executive VoC Report seeded.')
+  console.log('Sample Executive VoC Report seeded.')
 
   // 7. Seed 3 isolated records for Beta Labs (to demonstrate tenant isolation)
   await prisma.feedback.deleteMany({
@@ -276,8 +276,8 @@ async function main() {
     ],
   })
 
-  console.log('✅ Beta Labs tenant isolation feedback seeded.')
-  console.log('🎉 Seeding completed successfully!')
+  console.log('Beta Labs tenant isolation feedback seeded.')
+  console.log('Seeding completed successfully.')
 }
 
 main()

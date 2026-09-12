@@ -214,7 +214,7 @@ export default function AskLoopPage() {
                       onClick={() => handleAsk(prompt)}
                       className="px-3 py-1 text-2xs font-medium bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 rounded-full border border-slate-200 dark:border-slate-800 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950/40 dark:hover:text-blue-400 transition-all text-left"
                     >
-                      💡 {prompt}
+                      {prompt}
                     </button>
                   ))}
                 </div>

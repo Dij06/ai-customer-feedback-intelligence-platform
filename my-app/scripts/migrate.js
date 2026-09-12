@@ -53,7 +53,7 @@ async function migrate() {
   `;
 
   await client.query(ddl);
-  console.log('✅ Tables "Theme", "FeedbackTheme", "Embedding", and "Report" created successfully!');
+  console.log('Tables Theme, FeedbackTheme, Embedding, and Report created successfully.');
   await client.end();
 }
 
