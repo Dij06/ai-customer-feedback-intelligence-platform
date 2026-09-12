@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
     const limit = Math.max(1, Math.min(100, parseInt(searchParams.get('limit') || '10', 10)));
 
-    // Multi-tenant isolation: strictly filter by active workspace
+    // Filter by active workspace
     const whereClause: Record<string, unknown> = {
       workspaceId: context.workspaceId,
     };
@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Server-side pagination query
+    // Pagination
     const totalFiltered = await prisma.feedback.count({ where: whereClause });
     const feedbacks = await prisma.feedback.findMany({
       where: whereClause,
@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
       take: limit,
     });
 
-    // Compute live stats scoped strictly to the current workspace
+    // Calculate stats for current workspace
     const workspaceScope = { workspaceId: context.workspaceId };
     const totalCount = await prisma.feedback.count({ where: workspaceScope });
     const positiveCount = await prisma.feedback.count({ where: { ...workspaceScope, sentiment: 'Positive' } });
@@ -105,13 +105,12 @@ export async function GET(req: NextRequest) {
         neutral: neutralCount,
         negative: negativeCount,
         highUrgency: highUrgencyCount,
-        positiveRatio: totalCount > 0 ? Math.round((positiveCount / totalCount) * 100) : 0,
       },
     });
   } catch (error: unknown) {
     console.error('Error fetching feedbacks:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch feedback entries' },
+      { success: false, error: 'Failed to fetch feedback records' },
       { status: 500 }
     );
   }
@@ -121,7 +120,7 @@ export async function POST(req: NextRequest) {
   try {
     const context = await getWorkspaceContext(req);
 
-    // RBAC Check: Viewers are read-only
+    // Check if user has permission to add feedback
     if (!canIngestFeedback(context.userRole)) {
       return forbiddenResponse('Viewer role is read-only. Ingestion is restricted to Admins and Analysts.');
     }
@@ -136,7 +135,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Run AI analysis with live cloud LLM (Groq / Gemini / Fallback)
+    // Run sentiment and category analysis
     const aiAnalysis = await analyzeFeedbackWithLLM(content);
 
     const feedback = await prisma.feedback.create({
@@ -149,7 +148,7 @@ export async function POST(req: NextRequest) {
         urgency: aiAnalysis.urgency,
         summary: aiAnalysis.summary,
         tags: aiAnalysis.tags,
-        status: 'NEW', // NEW -> REVIEWED -> ACTIONED
+        status: 'NEW',
         customerName: customerName || null,
         customerEmail: customerEmail || null,
         workspaceId: context.workspaceId,
@@ -177,7 +176,7 @@ export async function PATCH(req: NextRequest) {
   try {
     const context = await getWorkspaceContext(req);
 
-    // RBAC Check: Viewers cannot triage or update feedback
+    // Check if user can update feedback
     if (!canTriageFeedback(context.userRole)) {
       return forbiddenResponse('Viewer role is read-only. Updating triage status is restricted to Admins and Analysts.');
     }
@@ -192,7 +191,7 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    // Ensure item belongs to the caller's workspace
+    // Verify item belongs to workspace
     const existing = await prisma.feedback.findFirst({
       where: { id, workspaceId: context.workspaceId },
     });
@@ -227,7 +226,7 @@ export async function DELETE(req: NextRequest) {
   try {
     const context = await getWorkspaceContext(req);
 
-    // RBAC Check: Only Admins can permanently delete feedback items
+    // Only admins can delete feedback
     if (!canDeleteFeedback(context.userRole)) {
       return forbiddenResponse('Only Admins are permitted to delete feedback items.');
     }
@@ -242,7 +241,7 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // Ensure item belongs to the caller's workspace
+    // Verify item belongs to workspace
     const existing = await prisma.feedback.findFirst({
       where: { id, workspaceId: context.workspaceId },
     });
