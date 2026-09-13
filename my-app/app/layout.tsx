@@ -1,12 +1,6 @@
-import type { Metadata } from 'next';
-import { ClerkProvider } from '@clerk/nextjs';
-import { Navbar } from '@/components/Navbar';
-import './globals.css';
-
-export const metadata: Metadata = {
-  title: 'LOOP — AI Customer Feedback Intelligence Platform',
-  description: 'Ingest multi-channel customer feedback, analyze sentiment with AI, and track product insights.',
-};
+import { ClerkProvider } from '@clerk/nextjs'
+import './globals.css'
+import { Toaster } from 'sonner' // 1. Import Toaster
 
 export default function RootLayout({
   children,
@@ -15,10 +9,11 @@ export default function RootLayout({
 }) {
   return (
     <ClerkProvider>
-      <html lang="en" className="dark" suppressHydrationWarning>
-        <body className="bg-slate-50 dark:bg-[#0b0f19] text-slate-900 dark:text-slate-100 min-h-screen flex flex-col antialiased selection:bg-blue-500 selection:text-white transition-colors duration-200">
-          <Navbar />
-          <main className="flex-1 w-full">{children}</main>
+      <html lang="en">
+        <body>
+          {children}
+          {/* 2. Add Toaster inside body tag */}
+          <Toaster position="top-right" richColors />
         </body>
       </html>
     </ClerkProvider>

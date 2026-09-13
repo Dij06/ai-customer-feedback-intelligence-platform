@@ -1,37 +1,33 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:where(.dark, .dark *));
-
-@layer base {
-  :root {
-    --bg-page: #f8fafc;
-    --text-primary: #0f172a;
-  }
-
-  .dark {
-    --bg-page: #0b0f19;
-    --text-primary: #f8fafc;
+@media print {
+  
+  button,
+  .print\:hidden,
+  form,
+  input,
+  header {
+    display: none !important;
   }
 
   body {
-    background-color: var(--bg-page);
-    color: var(--text-primary);
-    transition: background-color 0.2s ease, color 0.2s ease;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-    min-height: 100vh;
+    background: white !important;
+    color: black !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
-}
 
-/* Glassmorphic & Shadow Utilities */
-.glass-panel {
-  backdrop-filter: blur(12px);
-}
+  /* Dashboard container adjustment */
+  .max-w-7xl {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
 
-.glass-card {
-  backdrop-filter: blur(8px);
-  transition: all 0.2s ease-in-out;
-}
-
-.glass-card:hover {
-  transform: translateY(-2px);
+  
+  .space-y-6 > * {
+    page-break-inside: avoid;
+    margin-bottom: 1.5rem !important;
+  }
 }
