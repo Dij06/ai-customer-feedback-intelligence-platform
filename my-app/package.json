@@ -7,9 +7,8 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint"
-    
   },
-"dependencies": {
+  "dependencies": {
     "@anthropic-ai/sdk": "^0.123.0",
     "@clerk/nextjs": "^7.8.2",
     "@hookform/resolvers": "^5.9.1",
@@ -25,7 +24,7 @@
     "sonner": "^2.0.8",
     "zod": "^4.4.3"
   },
- "devDependencies": {
+  "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/papaparse": "^5.5.2",
