@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, Inbox } from "lucide-react";
 
 interface FeedbackInboxProps {
   workspaceId?: string;
@@ -75,10 +75,30 @@ export default function FeedbackInbox({ workspaceId }: FeedbackInboxProps) {
       {/* Feedbacks List */}
       <div className="space-y-3 min-h-[200px]">
         {loading ? (
-          <p className="text-sm text-slate-500 italic text-center py-8">Loading feedbacks...</p>
+          // --- SKELETON LOADING STATE ---
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="p-3 border rounded-lg animate-pulse space-y-2">
+                <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-3/4"></div>
+                <div className="h-3 bg-slate-100 dark:bg-slate-800 rounded w-1/2"></div>
+              </div>
+            ))}
+          </div>
         ) : filteredFeedbacks.length === 0 ? (
-          <p className="text-sm text-slate-500 text-center py-8">No Feedback found.</p>
+          // --- PROFESSIONAL EMPTY STATE UI ---
+          <div className="flex flex-col items-center justify-center p-8 border border-dashed rounded-lg bg-slate-50/50 dark:bg-slate-900/50 text-center my-2">
+            <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-3">
+              <Inbox className="w-6 h-6 text-slate-400" />
+            </div>
+            <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+              No Feedbacks Found
+            </h4>
+            <p className="text-xs text-slate-500 max-w-xs mt-1">
+              You haven't added any feedback yet. Add direct feedback or upload a CSV file.
+            </p>
+          </div>
         ) : (
+          // --- FEEDBACK CARDS LIST ---
           filteredFeedbacks.map((item) => (
             <div key={item.id} className="p-3 border rounded-lg bg-background hover:border-slate-300 transition-colors">
               <div className="flex justify-between items-start mb-1">

@@ -4,7 +4,6 @@ import Groq from "groq-sdk";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-// Active Groq models in 2026
 const MODELS = [
   process.env.GROQ_MODEL,
   "openai/gpt-oss-20b",
@@ -55,15 +54,17 @@ export async function GET(req: Request) {
 
     const feedbacks = await prisma.feedback.findMany({
       where: whereClause,
-      take: 25,
+      take: 50,
       orderBy: { createdAt: "desc" },
-      select: { content: true, sentiment: true, category: true },
     });
 
     if (feedbacks.length === 0) {
       return NextResponse.json({
-        clusters: [],
-        trends: ["Not enough data to analyze trends."],
+        summary: "No customer feedback available yet.",
+        csatScore: "N/A",
+        keyWins: ["No positive feedback recorded yet."],
+        topComplaints: ["No complaints recorded yet."],
+        actionItems: ["Collect more feedback to generate insights."],
       });
     }
 
@@ -71,33 +72,43 @@ export async function GET(req: Request) {
       .map((f, i) => `${i + 1}. [${f.sentiment || "NEUTRAL"}] ${f.content}`)
       .join("\n");
 
-    const prompt = `You are a product feedback analyst. Analyze these feedback items:
+    const prompt = `You are a Voice of Customer analyst. Analyze this feedback:
 
 ${feedbackText}
 
-Provide a valid JSON response matching this exact structure:
+Provide a valid JSON response with these EXACT keys:
 {
-  "clusters": [
-    { "theme": "Theme Name", "count": number, "description": "Short explanation of feedback group" }
-  ],
-  "trends": [
-    "Trend observation 1",
-    "Trend observation 2"
-  ]
+  "summary": "Brief 2-3 sentence executive summary",
+  "csatScore": "Estimated CSAT score like 85% or 4.2/5",
+  "keyWins": ["win 1", "win 2"],
+  "topComplaints": ["complaint 1", "complaint 2"],
+  "actionItems": ["action 1", "action 2"]
 }
 
-Only return valid JSON without markdown text or surrounding quotes.`;
+Only return valid JSON.`;
 
     const response = await getGroqCompletion(prompt);
-
     const rawContent = response.choices[0]?.message?.content || "{}";
     const parsedData = JSON.parse(rawContent.trim());
 
-    return NextResponse.json(parsedData);
+    return NextResponse.json({
+      summary: parsedData.summary || "Summary unavailable.",
+      csatScore: parsedData.csatScore || "N/A",
+      keyWins: parsedData.keyWins || [],
+      topComplaints: parsedData.topComplaints || [],
+      actionItems: parsedData.actionItems || [],
+    });
   } catch (error: any) {
-    console.error("Insights API Error:", error);
+    console.error("VoC Report API Error:", error);
     return NextResponse.json(
-      { clusters: [], trends: ["Failed to calculate trends due to AI processing issue."] },
+      {
+        summary: "Failed to load report summary due to an error.",
+        csatScore: "N/A",
+        keyWins: [],
+        topComplaints: [],
+        actionItems: [],
+        error: "Failed to generate report.",
+      },
       { status: 500 }
     );
   }

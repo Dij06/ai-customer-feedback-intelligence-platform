@@ -63,7 +63,7 @@ export default function VocReportCard({ workspaceId }: { workspaceId?: string })
       {/* Executive Summary */}
       <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
         <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Executive Summary</h4>
-        <p className="text-sm text-gray-700 leading-relaxed">{report?.summary}</p>
+        <p className="text-sm text-gray-700 leading-relaxed">{report?.summary || "No summary available."}</p>
       </div>
 
       {/* Grid: Complaints & Wins */}
@@ -74,7 +74,7 @@ export default function VocReportCard({ workspaceId }: { workspaceId?: string })
             <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Key Customer Wins
           </div>
           <ul className="space-y-1.5 text-xs text-gray-700 list-disc list-inside">
-            {report?.keyWins.map((win, i) => (
+            {(report?.keyWins || []).map((win, i) => (
               <li key={i}>{win}</li>
             ))}
           </ul>
@@ -86,7 +86,7 @@ export default function VocReportCard({ workspaceId }: { workspaceId?: string })
             <AlertCircle className="h-4 w-4 text-red-600" /> Top Pain Points
           </div>
           <ul className="space-y-1.5 text-xs text-gray-700 list-disc list-inside">
-            {report?.topComplaints.map((item, i) => (
+            {(report?.topComplaints || []).map((item, i) => (
               <li key={i}>{item}</li>
             ))}
           </ul>
@@ -99,7 +99,7 @@ export default function VocReportCard({ workspaceId }: { workspaceId?: string })
           <Lightbulb className="h-4 w-4 text-indigo-600" /> Recommended Strategic Actions
         </div>
         <ul className="space-y-1 text-xs text-gray-700 list-disc list-inside">
-          {report?.actionItems.map((action, i) => (
+          {(report?.actionItems || []).map((action, i) => (
             <li key={i}>{action}</li>
           ))}
         </ul>
