@@ -25,7 +25,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@prisma/client": "^5.22.0",
+    "@prisma/client": "5.22.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/papaparse": "^5.5.2",
@@ -34,7 +34,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.2",
     "graphmatch": "^1.1.1",
-    "prisma": "^5.22.0",
+    "prisma": "5.22.0",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
     "typescript": "^5"
