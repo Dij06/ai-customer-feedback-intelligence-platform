@@ -1,18 +1,28 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateFullSeedDataset, DEMO_USERS } from '@/lib/seed-data';
+import { getWorkspaceContext, canIngestFeedback, unauthorizedResponse, forbiddenResponse } from '@/lib/rbac';
+import { generateEmbedding } from '@/lib/embeddings';
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   try {
-    // 1. Ensure default Acme Corp workspace exists
-    const acmeWorkspace = await prisma.workspace.upsert({
-      where: { slug: 'acme-corp' },
-      update: { name: 'Acme Corp' },
-      create: {
-        name: 'Acme Corp',
-        slug: 'acme-corp',
-      },
+    const context = await getWorkspaceContext(req);
+    if (!context) {
+      return unauthorizedResponse('Please sign in to seed feedback data.');
+    }
+
+    if (!canIngestFeedback(context.userRole)) {
+      return forbiddenResponse('Only Admins and Analysts are permitted to seed feedback data.');
+    }
+
+    // Ensure target active workspace exists
+    const activeWorkspace = await prisma.workspace.findUnique({
+      where: { id: context.workspaceId },
     });
+
+    if (!activeWorkspace) {
+      return NextResponse.json({ success: false, error: 'Workspace not found' }, { status: 404 });
+    }
 
     const betaWorkspace = await prisma.workspace.upsert({
       where: { slug: 'beta-labs' },
@@ -23,8 +33,8 @@ export async function POST() {
       },
     });
 
-    // 2. Ensure RBAC demo users exist
-    const adminUser = await prisma.user.upsert({
+    // Add demo users and workspace memberships
+    await prisma.user.upsert({
       where: { email: 'admin@acme.com' },
       update: { name: 'Admin User', role: 'ADMIN' },
       create: {
@@ -51,21 +61,21 @@ export async function POST() {
         where: {
           userId_workspaceId: {
             userId: user.id,
-            workspaceId: acmeWorkspace.id,
+            workspaceId: activeWorkspace.id,
           },
         },
         update: { role: u.role },
         create: {
           userId: user.id,
-          workspaceId: acmeWorkspace.id,
+          workspaceId: activeWorkspace.id,
           role: u.role,
         },
       });
     }
 
-    // 3. Clear existing items for Acme Corp and re-populate full dataset
+    // Populate feedback for the active workspace
     await prisma.feedback.deleteMany({
-      where: { workspaceId: acmeWorkspace.id },
+      where: { workspaceId: activeWorkspace.id },
     });
 
     const rawDataset = generateFullSeedDataset();
@@ -86,8 +96,8 @@ export async function POST() {
         summary: item.summary,
         tags: item.tags,
         createdAt: createdDate,
-        workspaceId: acmeWorkspace.id,
-        userId: adminUser.id,
+        workspaceId: activeWorkspace.id,
+        userId: context.userId,
       };
     });
 
@@ -95,7 +105,25 @@ export async function POST() {
       data: feedbackData,
     });
 
-    // Seed Beta Labs isolated tenant data
+    // Vectorize all newly created feedback records for semantic search
+    const createdFeedbacks = await prisma.feedback.findMany({
+      where: { workspaceId: activeWorkspace.id },
+      select: { id: true, content: true },
+    });
+
+    for (const item of createdFeedbacks) {
+      const vector = await generateEmbedding(item.content);
+      await prisma.embedding.upsert({
+        where: { feedbackId: item.id },
+        update: { vector: JSON.stringify(vector) },
+        create: {
+          feedbackId: item.id,
+          vector: JSON.stringify(vector),
+        },
+      });
+    }
+
+    // Beta Labs feedback (tenant isolation demo)
     await prisma.feedback.deleteMany({
       where: { workspaceId: betaWorkspace.id },
     });
@@ -103,7 +131,7 @@ export async function POST() {
     await prisma.feedback.createMany({
       data: [
         {
-          content: 'Beta Labs isolated customer feedback: Testing quantum neural network pipeline.',
+          content: 'Beta Labs test feedback: Really loving the new dashboard analytics and speed improvements.',
           source: 'Email',
           sentiment: 'Positive',
           sentimentScore: 0.85,
@@ -112,18 +140,31 @@ export async function POST() {
           status: 'NEW',
           customerName: 'Beta Client',
           customerEmail: 'client@betalabs.internal',
-          summary: 'Quantum pipeline testing feedback.',
-          tags: ['beta-labs', 'isolated-tenant'],
+          summary: 'Positive feedback on dashboard speed.',
+          tags: ['beta-labs', 'tenant-test'],
           workspaceId: betaWorkspace.id,
         },
       ],
     });
 
+    const betaFeedbacks = await prisma.feedback.findMany({
+      where: { workspaceId: betaWorkspace.id },
+      select: { id: true, content: true },
+    });
+    for (const b of betaFeedbacks) {
+      const v = await generateEmbedding(b.content);
+      await prisma.embedding.upsert({
+        where: { feedbackId: b.id },
+        update: { vector: JSON.stringify(v) },
+        create: { feedbackId: b.id, vector: JSON.stringify(v) },
+      });
+    }
+
     return NextResponse.json({
       success: true,
-      message: `Successfully seeded ${feedbackData.length} items across Acme Corp & Beta Labs`,
+      message: `Successfully seeded ${feedbackData.length} items in ${activeWorkspace.name} & Beta Labs`,
       count: feedbackData.length,
-      workspace: acmeWorkspace.name,
+      workspace: activeWorkspace.name,
     });
   } catch (error: unknown) {
     console.error('Error seeding data:', error);

@@ -23,6 +23,14 @@ interface Message {
   suggestedFollowUps?: string[];
 }
 
+function getFormattedTime() {
+  return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function createMsgId(prefix: string) {
+  return `${prefix}-${Math.random().toString(36).substring(2, 9)}`;
+}
+
 export default function AskLoopPage() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -32,7 +40,7 @@ export default function AskLoopPage() {
       role: 'assistant',
       content:
         "Hello! I'm **Ask LOOP**, your AI assistant for customer feedback. Ask me anything in plain English about what customers like, top complaints, bug reports, or feature requests.",
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestamp: 'Just now',
       suggestedFollowUps: [
         'What are users saying about onboarding & workspace setup?',
         'Why are customers complaining about billing and invoices?',
@@ -47,10 +55,10 @@ export default function AskLoopPage() {
     if (!question.trim() || loading) return;
 
     const userMsg: Message = {
-      id: Date.now().toString(),
+      id: createMsgId('user'),
       role: 'user',
       content: question,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestamp: getFormattedTime(),
     };
 
     setMessages((prev) => [...prev, userMsg]);
@@ -67,10 +75,10 @@ export default function AskLoopPage() {
 
       if (data.success) {
         const aiMsg: Message = {
-          id: (Date.now() + 1).toString(),
+          id: createMsgId('ai'),
           role: 'assistant',
           content: data.answer,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          timestamp: getFormattedTime(),
           confidence: data.confidence,
           provider: data.provider,
           citedItems: data.citedItems || [],
@@ -79,10 +87,10 @@ export default function AskLoopPage() {
         setMessages((prev) => [...prev, aiMsg]);
       } else {
         const errorMsg: Message = {
-          id: (Date.now() + 1).toString(),
+          id: createMsgId('err'),
           role: 'assistant',
           content: 'Sorry, I had trouble searching the workspace feedback. Please try again.',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          timestamp: getFormattedTime(),
         };
         setMessages((prev) => [...prev, errorMsg]);
       }
@@ -97,7 +105,7 @@ export default function AskLoopPage() {
     <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-6 flex flex-col h-[calc(100vh-5rem)]">
         
-        {/* Top Header */}
+        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-4">
           <div>
             <div className="flex items-center gap-2">
@@ -132,7 +140,7 @@ export default function AskLoopPage() {
           </div>
         </div>
 
-        {/* Message Stream */}
+        {/* Messages */}
         <div className="flex-1 overflow-y-auto space-y-5 pr-1">
           {messages.map((msg) => (
             <div
@@ -146,7 +154,7 @@ export default function AskLoopPage() {
                     : 'bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800/80 text-slate-800 dark:text-slate-200 rounded-bl-xs'
                 }`}
               >
-                {/* Assistant Provider Tag */}
+                {/* Provider tag */}
                 {msg.role === 'assistant' && (
                   <div className="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-slate-100 dark:border-slate-800 text-2xs text-slate-400">
                     <span className="font-semibold flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
@@ -161,12 +169,12 @@ export default function AskLoopPage() {
                   </div>
                 )}
 
-                {/* Message Content */}
+                {/* Message text */}
                 <p className="text-sm leading-relaxed whitespace-pre-wrap font-normal">
                   {msg.content}
                 </p>
 
-                {/* Citations & Evidence Section */}
+                {/* Citations and customer quotes */}
                 {msg.citedItems && msg.citedItems.length > 0 && (
                   <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
                     <div className="text-2xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
@@ -205,7 +213,7 @@ export default function AskLoopPage() {
                 )}
               </div>
 
-              {/* Follow-up suggestions */}
+              {/* Suggested follow-up prompts */}
               {msg.suggestedFollowUps && msg.suggestedFollowUps.length > 0 && (
                 <div className="mt-2.5 flex flex-wrap gap-2 max-w-2xl">
                   {msg.suggestedFollowUps.map((prompt, idx) => (
@@ -234,7 +242,7 @@ export default function AskLoopPage() {
           )}
         </div>
 
-        {/* Input Bar */}
+        {/* Input form */}
         <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
           <form
             onSubmit={(e) => {

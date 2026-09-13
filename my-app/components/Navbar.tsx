@@ -9,31 +9,38 @@ import { ThemeToggle } from './ThemeToggle';
 export function Navbar() {
   const pathname = usePathname();
   const { isSignedIn, isLoaded } = useUser();
-  const [role, setRole] = useState<'ADMIN' | 'ANALYST' | 'VIEWER'>('ADMIN');
-  const [workspaceName, setWorkspaceName] = useState<string>('Acme Corp');
+  const [role, setRole] = useState<'ADMIN' | 'ANALYST' | 'VIEWER' | null>(null);
+  const [workspaceName, setWorkspaceName] = useState<string | null>(null);
 
   useEffect(() => {
+    let ignore = false;
+    if (!isSignedIn) {
+      return;
+    }
+
     async function loadContext() {
       try {
         const res = await fetch('/api/workspace/members');
         const data = await res.json();
-        if (data.success && data.workspace) {
+        if (!ignore && data.success && data.workspace) {
           setWorkspaceName(data.workspace.name);
-          setCurrentRole(data.currentRole);
+          if (data.currentRole && ['ADMIN', 'ANALYST', 'VIEWER'].includes(data.currentRole)) {
+            setRole(data.currentRole);
+          }
         }
       } catch (err) {
-        console.error('Error loading navbar context:', err);
+        console.error('Error loading workspace context:', err);
       }
     }
 
-    const setCurrentRole = (r?: 'ADMIN' | 'ANALYST' | 'VIEWER') => {
-      if (r && ['ADMIN', 'ANALYST', 'VIEWER'].includes(r)) {
-        setRole(r);
-      }
-    };
-
     loadContext();
-  }, []);
+    return () => {
+      ignore = true;
+    };
+  }, [isSignedIn]);
+
+  const activeRole = isSignedIn ? role : null;
+  const activeWorkspaceName = isSignedIn ? workspaceName : null;
 
   const navItems = [
     { label: 'Inbox', href: '/feedback' },
@@ -44,8 +51,8 @@ export function Navbar() {
     { label: 'Team', href: '/workspace/members' },
   ];
 
-  const getRoleBadgeColor = () => {
-    switch (role) {
+  const getRoleBadgeColor = (userRole: 'ADMIN' | 'ANALYST' | 'VIEWER') => {
+    switch (userRole) {
       case 'ADMIN':
         return 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-500/10 dark:text-purple-400 dark:border-purple-500/20';
       case 'ANALYST':
@@ -90,17 +97,22 @@ export function Navbar() {
           </nav>
         </div>
 
-        {/* Right side: Clean Organization & Role Info + Theme Toggle + Auth */}
-        <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-              {workspaceName}
+        {/* Tenant, role, theme, and auth */}
+        <div className="flex items-center gap-2.5">
+          {/* Active Workspace Display */}
+          {activeWorkspaceName && (
+            <div className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100/80 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              {activeWorkspaceName}
+            </div>
+          )}
+
+          {/* Active Role Badge */}
+          {activeRole && (
+            <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${getRoleBadgeColor(activeRole)}`}>
+              Role: {activeRole}
             </span>
-            <span className="text-slate-400 dark:text-slate-600">·</span>
-            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getRoleBadgeColor()}`}>
-              {role === 'ADMIN' ? 'Admin' : role === 'ANALYST' ? 'Analyst' : 'Viewer (Read-Only)'}
-            </span>
-          </div>
+          )}
 
           {/* Theme Switcher Toggle */}
           <ThemeToggle />

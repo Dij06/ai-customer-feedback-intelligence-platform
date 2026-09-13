@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 interface ThemeMetric {
@@ -46,24 +46,27 @@ export default function TrendsPage() {
   const [drillDownLoading, setDrillDownLoading] = useState(false);
   const [filterType, setFilterType] = useState<'ALL' | 'SURGES' | 'POSITIVE' | 'NEGATIVE'>('ALL');
 
-  const fetchThemes = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/themes');
-      const data = await res.json();
-      if (data.success) {
-        setThemes(data.themes || []);
-      }
-    } catch (err) {
-      console.error('Failed to load theme trends:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    fetchThemes();
-  }, [fetchThemes]);
+    let ignore = false;
+    async function load() {
+      try {
+        const res = await fetch('/api/themes');
+        const data = await res.json();
+        if (!ignore && data.success) {
+          setThemes(data.themes || []);
+        }
+      } catch (err) {
+        if (!ignore) console.error('Failed to load theme trends:', err);
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   const handleOpenDrillDown = async (themeId: string) => {
     setSelectedThemeId(themeId);
@@ -96,7 +99,7 @@ export default function TrendsPage() {
     <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         
-        {/* Top Header */}
+        {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-6">
           <div>
             <div className="flex items-center gap-2">
@@ -133,7 +136,7 @@ export default function TrendsPage() {
           </div>
         </div>
 
-        {/* Quick Stats Summary */}
+        {/* Stats summary */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/90 dark:border-slate-800/80 shadow-xs">
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Active Topics</span>
@@ -159,7 +162,7 @@ export default function TrendsPage() {
           </div>
         </div>
 
-        {/* Filter Bar */}
+        {/* Filter bar */}
         <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
           {(['ALL', 'SURGES', 'POSITIVE', 'NEGATIVE'] as const).map((filter) => (
             <button
@@ -182,7 +185,7 @@ export default function TrendsPage() {
           ))}
         </div>
 
-        {/* Themes Grid */}
+        {/* Topics grid */}
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 py-12">
             {[1, 2, 3, 4, 5, 6].map((n) => (
@@ -208,7 +211,7 @@ export default function TrendsPage() {
                       : 'border-slate-200/90 dark:border-slate-800/80 shadow-xs hover:border-blue-500/50'
                   }`}
                 >
-                  {/* Top Spike Pill */}
+                  {/* Spike pill */}
                   <div className="flex items-center justify-between gap-2 mb-3">
                     <span
                       className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold"
@@ -235,7 +238,7 @@ export default function TrendsPage() {
                     </span>
                   </div>
 
-                  {/* Theme Title & Description */}
+                  {/* Topic name and description */}
                   <h3 className="text-lg font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                     {theme.name}
                   </h3>
@@ -243,7 +246,7 @@ export default function TrendsPage() {
                     {theme.description || 'Customer feedback topic.'}
                   </p>
 
-                  {/* Sentiment Bar Meter */}
+                  {/* Sentiment meter */}
                   <div className="mt-5 space-y-1.5">
                     <div className="flex justify-between text-2xs font-semibold text-slate-600 dark:text-slate-400">
                       <span>{theme.positiveRatio}% Positive</span>
@@ -259,14 +262,14 @@ export default function TrendsPage() {
                     </div>
                   </div>
 
-                  {/* Verbatim Sample Snippet */}
+                  {/* Sample quote */}
                   {theme.sampleQuote && (
                     <div className="mt-4 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-xs italic text-slate-600 dark:text-slate-300 line-clamp-2">
                       &ldquo;{theme.sampleQuote}&rdquo;
                     </div>
                   )}
 
-                  {/* Footer drill-down action */}
+                  {/* Drill-down link */}
                   <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs font-semibold text-blue-600 dark:text-blue-400 group-hover:translate-x-0.5 transition-transform">
                     <span>View all {theme.count} feedback items</span>
                     <span>&rarr;</span>
@@ -277,7 +280,7 @@ export default function TrendsPage() {
           </div>
         )}
 
-        {/* Drill-down Drawer Modal */}
+        {/* Drill-down drawer */}
         {selectedThemeId && (
           <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex justify-end">
             <div className="w-full max-w-2xl bg-white dark:bg-slate-900 h-full shadow-2xl p-6 sm:p-8 flex flex-col justify-between overflow-y-auto border-l border-slate-200 dark:border-slate-800 animate-in slide-in-from-right duration-200">

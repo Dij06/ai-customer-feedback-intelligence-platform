@@ -14,7 +14,7 @@ export default function NewFeedbackPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // Live client-side preview using classification analysis helper
+  // Real-time preview analysis
   const liveAnalysis = content.trim() ? analyzeFeedbackWithAI(content) : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -87,7 +87,7 @@ export default function NewFeedbackPage() {
           </p>
         </div>
 
-        {/* Quick Fill Presets */}
+        {/* Example feedback presets */}
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-wrap items-center gap-2.5">
           <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Try an Example:</span>
           <button
@@ -114,7 +114,7 @@ export default function NewFeedbackPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Ingestion Form */}
+          {/* Feedback Form */}
           <div className="lg:col-span-2">
             <form onSubmit={handleSubmit} className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-5">
               {error && (
@@ -202,7 +202,7 @@ export default function NewFeedbackPage() {
             </form>
           </div>
 
-          {/* Real-Time Live Preview Panel */}
+          {/* Live Preview Panel */}
           <div className="space-y-4">
             <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-4">
               <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">

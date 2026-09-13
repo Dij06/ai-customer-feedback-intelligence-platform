@@ -3,29 +3,24 @@ import Link from 'next/link';
 export default function Home() {
   return (
     <div className="relative overflow-hidden bg-[#F8F9FA] dark:bg-[#0b0f19] transition-colors min-h-[calc(100vh-4rem)]">
-      {/* Subtle Ambient Background Gradient */}
       <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[650px] h-[350px] bg-gradient-to-tr from-[#2D68FF]/15 via-[#8B5CF6]/10 to-indigo-500/10 blur-[120px] pointer-events-none rounded-full" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24 relative z-10">
-        {/* Hero Header */}
         <div className="text-center max-w-3xl mx-auto space-y-6">
-          {/* Top pill */}
+          {/* Top pill badge */}
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 shadow-xs text-xs font-bold text-[#1A1F36] dark:text-slate-200">
-            <span className="w-2 h-2 rounded-full bg-[#1A1F36] dark:bg-blue-400" />
-            AI-Powered Customer Feedback Intelligence Platform
+            <span className="w-2 h-2 rounded-full bg-[#2D68FF]" />
+            AI-Powered Customer Feedback Platform
           </div>
 
-          {/* Large headline with strong, legible gradient from #2D68FF to #8B5CF6 */}
           <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight leading-tight bg-gradient-to-r from-[#2D68FF] to-[#8B5CF6] bg-clip-text text-transparent pb-1">
-            Turn multi-channel customer voice into actionable intelligence
+            Collect, understand, and act on customer feedback
           </h1>
 
-          {/* Paragraph in solid high-legibility dark navy */}
           <p className="text-base sm:text-lg font-medium text-[#1A1F36] dark:text-slate-300 leading-relaxed max-w-2xl mx-auto">
-            Ingest feedback from Email, Twitter, Discord, Support Tickets, and Surveys. Automatically score sentiment, extract key topics, and prioritize critical product fixes.
+            Bring feedback from Email, Twitter, Discord, Support Tickets, and Surveys into one place. Automatically score sentiment, group topics, and fix critical product issues faster.
           </p>
 
-          {/* Call to Actions */}
           <div className="pt-4 flex flex-wrap items-center justify-center gap-4">
             <Link
               href="/feedback"
@@ -42,9 +37,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Feature Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16">
-          {/* Card 1: Themes & Trend Spikes */}
           <div className="p-6 rounded-2xl bg-white dark:bg-slate-900/60 border border-slate-200/90 dark:border-slate-800 hover:border-indigo-500/40 shadow-xs hover:shadow-md transition-all space-y-3">
             <div className="w-11 h-11 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold border border-indigo-200 dark:border-indigo-500/20 shadow-xs">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -61,7 +54,6 @@ export default function Home() {
             </Link>
           </div>
 
-          {/* Card 2: Ask LOOP */}
           <div className="p-6 rounded-2xl bg-white dark:bg-slate-900/60 border border-slate-200/90 dark:border-slate-800 hover:border-blue-500/40 shadow-xs hover:shadow-md transition-all space-y-3">
             <div className="w-11 h-11 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-[#2D68FF] flex items-center justify-center font-bold border border-blue-200 dark:border-blue-500/20 shadow-xs">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -78,7 +70,6 @@ export default function Home() {
             </Link>
           </div>
 
-          {/* Card 3: Executive Reports */}
           <div className="p-6 rounded-2xl bg-white dark:bg-slate-900/60 border border-slate-200/90 dark:border-slate-800 hover:border-emerald-500/40 shadow-xs hover:shadow-md transition-all space-y-3">
             <div className="w-11 h-11 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold border border-emerald-200 dark:border-emerald-500/20 shadow-xs">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

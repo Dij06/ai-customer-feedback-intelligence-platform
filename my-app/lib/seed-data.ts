@@ -46,7 +46,7 @@ export const DEMO_USERS = [
 ];
 
 export const SEED_FEEDBACK_DATA: SeedFeedbackItem[] = [
-  // --- HIGH URGENCY BUGS & BILLING (Critical Items) ---
+  // Critical bugs & billing
   {
     content: 'CRITICAL: The production database export crashed during our quarterly compliance audit and returned a 500 internal server error!',
     source: 'Support Ticket',
@@ -118,7 +118,7 @@ export const SEED_FEEDBACK_DATA: SeedFeedbackItem[] = [
     daysAgo: 5,
   },
 
-  // --- PERFORMANCE & SPEED ISSUES ---
+  // Performance and speed
   {
     content: 'Dashboard latency spikes up to 6.2 seconds during peak morning hours (9am-11am EST). Need query caching.',
     source: 'Email',
@@ -176,7 +176,7 @@ export const SEED_FEEDBACK_DATA: SeedFeedbackItem[] = [
     daysAgo: 8,
   },
 
-  // --- PRAISE & POSITIVE SENTIMENT ---
+  // Positive reviews
   {
     content: 'The new AI auto-classification engine saved our CX team over 15 hours of manual triage this week alone! Truly outstanding update.',
     source: 'Twitter',
@@ -262,7 +262,7 @@ export const SEED_FEEDBACK_DATA: SeedFeedbackItem[] = [
     daysAgo: 8,
   },
 
-  // --- FEATURE REQUESTS & PRODUCT FEEDBACK ---
+  // Feature requests
   {
     content: 'Would love native Slack integration to post high-urgency customer complaints directly into an #alerts channel.',
     source: 'Discord',
@@ -334,7 +334,7 @@ export const SEED_FEEDBACK_DATA: SeedFeedbackItem[] = [
     daysAgo: 10,
   },
 
-  // --- UI/UX & USABILITY FEEDBACK ---
+  // UI and UX feedback
   {
     content: 'Mobile responsive drawer on iPhone 15 cuts off the sentiment confidence score badge when opened in landscape mode.',
     source: 'App Store Review',
@@ -392,7 +392,7 @@ export const SEED_FEEDBACK_DATA: SeedFeedbackItem[] = [
     daysAgo: 12,
   },
 
-  // --- BILLING & SUBSCRIPTION ITEMS ---
+  // Billing and subscription
   {
     content: 'Annual billing invoice does not display our EU VAT number despite entering it in the organization profile.',
     source: 'Support Ticket',
@@ -436,7 +436,7 @@ export const SEED_FEEDBACK_DATA: SeedFeedbackItem[] = [
     daysAgo: 16,
   },
 
-  // --- GENERAL & SURVEY CHANNELS ---
+  // General feedback and NPS surveys
   {
     content: 'NPS Score 10/10: Reliable platform that does exactly what it promises without bloat.',
     source: 'NPS Survey',
@@ -480,7 +480,7 @@ export const SEED_FEEDBACK_DATA: SeedFeedbackItem[] = [
     daysAgo: 4,
   },
 
-  // --- EXTENSIVE MULTI-CHANNEL DATA MATRIX (Simulated Ingestion) ---
+  // Additional feedback items
   {
     content: 'Webhook payload delivery failed with TLS handshake error after server certificate renewal.',
     source: 'Discord',
@@ -623,7 +623,7 @@ export const SEED_FEEDBACK_DATA: SeedFeedbackItem[] = [
   }
 ];
 
-// Helper to expand and generate full 125 items across realistic dates and channels
+// Generates full dataset across dates and channels
 export function generateFullSeedDataset(): SeedFeedbackItem[] {
   const fullList: SeedFeedbackItem[] = [...SEED_FEEDBACK_DATA];
   
@@ -705,7 +705,6 @@ export function generateFullSeedDataset(): SeedFeedbackItem[] {
     'Ursula Le Guin', 'Victor Hugo', 'Wendy Darling', 'Xavier Hernandez', 'Yara Shahidi', 'Zoe Kravitz'
   ];
 
-  let idCounter = fullList.length;
   for (let i = 0; i < 90; i++) {
     const template = additionalTemplates[i % additionalTemplates.length];
     const topic = topics[i % topics.length];
@@ -738,7 +737,6 @@ export function generateFullSeedDataset(): SeedFeedbackItem[] {
       tags: [template.tag, topic.name.toLowerCase().split(' ')[0]],
       daysAgo,
     });
-    idCounter++;
   }
 
   return fullList;

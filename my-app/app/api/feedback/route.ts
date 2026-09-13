@@ -1,23 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { analyzeFeedbackWithAI, analyzeFeedbackWithLLM } from '@/lib/ai';
+import { analyzeFeedbackWithLLM } from '@/lib/ai';
+import { generateEmbedding } from '@/lib/embeddings';
 import {
   getWorkspaceContext,
   canIngestFeedback,
   canTriageFeedback,
   canDeleteFeedback,
+  unauthorizedResponse,
   forbiddenResponse,
 } from '@/lib/rbac';
+import { FeedbackCreateSchema, FeedbackUpdateSchema } from '@/lib/validations';
 
 export async function GET(req: NextRequest) {
   try {
     const context = await getWorkspaceContext(req);
+    if (!context) {
+      return unauthorizedResponse();
+    }
     const { searchParams } = new URL(req.url);
 
     const sentiment = searchParams.get('sentiment');
     const category = searchParams.get('category');
     const source = searchParams.get('source');
     const status = searchParams.get('status');
+    const themeId = searchParams.get('themeId') || searchParams.get('theme');
     const search = searchParams.get('search');
     const dateRange = searchParams.get('dateRange'); // '7d', '30d', '90d', 'all'
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
@@ -39,6 +46,13 @@ export async function GET(req: NextRequest) {
     }
     if (status && status !== 'ALL') {
       whereClause.status = status;
+    }
+    if (themeId && themeId !== 'ALL') {
+      whereClause.feedbackThemes = {
+        some: {
+          themeId: themeId,
+        },
+      };
     }
     if (search && search.trim() !== '') {
       whereClause.OR = [
@@ -68,6 +82,13 @@ export async function GET(req: NextRequest) {
     const totalFiltered = await prisma.feedback.count({ where: whereClause });
     const feedbacks = await prisma.feedback.findMany({
       where: whereClause,
+      include: {
+        feedbackThemes: {
+          include: {
+            theme: true,
+          },
+        },
+      },
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
       take: limit,
@@ -119,23 +140,27 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const context = await getWorkspaceContext(req);
-
-    // Check if user has permission to add feedback
-    if (!canIngestFeedback(context.userRole)) {
-      return forbiddenResponse('Viewer role is read-only. Ingestion is restricted to Admins and Analysts.');
+    if (!context) {
+      return unauthorizedResponse();
     }
 
-    const body = await req.json();
-    const { content, source = 'Web Form', customerName, customerEmail } = body;
+    if (!canIngestFeedback(context.userRole)) {
+      return forbiddenResponse('Viewers cannot add feedback. Please ask an Admin or Analyst.');
+    }
 
-    if (!content || typeof content !== 'string' || content.trim() === '') {
+    const rawBody = await req.json().catch(() => ({}));
+    const parseResult = FeedbackCreateSchema.safeParse(rawBody);
+
+    if (!parseResult.success) {
+      const errorMessage = parseResult.error.issues.map((e: { message: string }) => e.message).join(', ');
       return NextResponse.json(
-        { success: false, error: 'Feedback content cannot be empty' },
+        { success: false, error: errorMessage, details: parseResult.error.issues },
         { status: 400 }
       );
     }
 
-    // Run sentiment and category analysis
+    const { content, source, customerName, customerEmail } = parseResult.data;
+
     const aiAnalysis = await analyzeFeedbackWithLLM(content);
 
     const feedback = await prisma.feedback.create({
@@ -152,8 +177,92 @@ export async function POST(req: NextRequest) {
         customerName: customerName || null,
         customerEmail: customerEmail || null,
         workspaceId: context.workspaceId,
+        userId: context.userId,
       },
     });
+
+    try {
+      const workspaceThemes = await prisma.theme.findMany({
+        where: { workspaceId: context.workspaceId },
+      });
+
+      const textLower = content.toLowerCase();
+      for (const theme of workspaceThemes) {
+        const themeKeywords = theme.name.toLowerCase().split(/\W+/).filter((w) => w.length > 3);
+        const hasKeywordMatch = themeKeywords.some((kw) => textLower.includes(kw));
+        const hasCategoryMatch = aiAnalysis.category.toLowerCase().includes(theme.name.toLowerCase()) || theme.name.toLowerCase().includes(aiAnalysis.category.toLowerCase());
+        const isSuggested = aiAnalysis.suggestedThemes?.some((st) => st.toLowerCase() === theme.name.toLowerCase());
+
+        if (hasKeywordMatch || hasCategoryMatch || isSuggested) {
+          await prisma.feedbackTheme.upsert({
+            where: {
+              feedbackId_themeId: {
+                feedbackId: feedback.id,
+                themeId: theme.id,
+              },
+            },
+            update: {},
+            create: {
+              feedbackId: feedback.id,
+              themeId: theme.id,
+              confidence: hasKeywordMatch && hasCategoryMatch ? 0.95 : 0.8,
+            },
+          });
+        }
+      }
+
+      // Guarantee at least one theme assignment for the feedback item
+      const assignedCount = await prisma.feedbackTheme.count({
+        where: { feedbackId: feedback.id },
+      });
+
+      if (assignedCount === 0) {
+        const targetThemeName = aiAnalysis.category || 'General';
+        const categoryTheme = await prisma.theme.upsert({
+          where: {
+            name_workspaceId: {
+              name: targetThemeName,
+              workspaceId: context.workspaceId,
+            },
+          },
+          update: {},
+          create: {
+            name: targetThemeName,
+            description: `Auto-assigned theme for ${targetThemeName} feedback`,
+            color: targetThemeName === 'Bug' ? '#ef4444' : targetThemeName === 'Performance' ? '#f59e0b' : targetThemeName === 'Billing' ? '#10b981' : '#3b82f6',
+            workspaceId: context.workspaceId,
+          },
+        });
+
+        await prisma.feedbackTheme.upsert({
+          where: {
+            feedbackId_themeId: {
+              feedbackId: feedback.id,
+              themeId: categoryTheme.id,
+            },
+          },
+          update: {},
+          create: {
+            feedbackId: feedback.id,
+            themeId: categoryTheme.id,
+            confidence: 0.9,
+          },
+        });
+      }
+
+      // Generate dense semantic vector embedding for semantic search in Ask LOOP
+      const vector = await generateEmbedding(content);
+      await prisma.embedding.upsert({
+        where: { feedbackId: feedback.id },
+        update: { vector: JSON.stringify(vector) },
+        create: {
+          feedbackId: feedback.id,
+          vector: JSON.stringify(vector),
+        },
+      });
+    } catch (relationErr) {
+      console.warn('Error linking theme/embedding:', relationErr);
+    }
 
     return NextResponse.json(
       {
@@ -175,21 +284,26 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const context = await getWorkspaceContext(req);
-
-    // Check if user can update feedback
-    if (!canTriageFeedback(context.userRole)) {
-      return forbiddenResponse('Viewer role is read-only. Updating triage status is restricted to Admins and Analysts.');
+    if (!context) {
+      return unauthorizedResponse();
     }
 
-    const body = await req.json();
-    const { id, status, category, urgency } = body;
+    if (!canTriageFeedback(context.userRole)) {
+      return forbiddenResponse('Viewers cannot update feedback status.');
+    }
 
-    if (!id) {
+    const rawBody = await req.json().catch(() => ({}));
+    const parseResult = FeedbackUpdateSchema.safeParse(rawBody);
+
+    if (!parseResult.success) {
+      const errorMessage = parseResult.error.issues.map((e: { message: string }) => e.message).join(', ');
       return NextResponse.json(
-        { success: false, error: 'Feedback ID is required' },
+        { success: false, error: errorMessage, details: parseResult.error.issues },
         { status: 400 }
       );
     }
+
+    const { id, status, category, urgency } = parseResult.data;
 
     // Verify item belongs to workspace
     const existing = await prisma.feedback.findFirst({
@@ -225,6 +339,9 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const context = await getWorkspaceContext(req);
+    if (!context) {
+      return unauthorizedResponse();
+    }
 
     // Only admins can delete feedback
     if (!canDeleteFeedback(context.userRole)) {

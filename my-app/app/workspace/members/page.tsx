@@ -47,8 +47,33 @@ export default function WorkspaceMembersPage() {
   }, []);
 
   useEffect(() => {
-    fetchMembers();
-  }, [fetchMembers]);
+    let ignore = false;
+    async function load() {
+      try {
+        const res = await fetch('/api/workspace/members');
+        const data = await res.json();
+        if (!ignore && data.success) {
+          setMembers(data.members);
+          setWorkspace(data.workspace);
+          setCurrentRole(data.currentRole);
+        } else if (!ignore) {
+          setError(data.error || 'Failed to load team members');
+        }
+      } catch (err) {
+        if (!ignore) {
+          console.error(err);
+          setError('Network error while loading team members');
+        }
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   const handleRoleChange = async (membershipId: string, newRole: 'ADMIN' | 'ANALYST' | 'VIEWER') => {
     setError('');
@@ -202,7 +227,7 @@ export default function WorkspaceMembersPage() {
         </div>
       )}
 
-      {/* RBAC Role Capabilities Matrix */}
+      {/* Roles and permissions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/60 border border-purple-200 dark:border-purple-500/20 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
@@ -235,7 +260,7 @@ export default function WorkspaceMembersPage() {
         </div>
       </div>
 
-      {/* Members Table */}
+      {/* Members list */}
       <div className="rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200/90 dark:border-slate-800/90 overflow-hidden shadow-xs">
         <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
@@ -308,7 +333,7 @@ export default function WorkspaceMembersPage() {
         )}
       </div>
 
-      {/* Invite Teammate Modal */}
+      {/* Invite modal */}
       {showInviteModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-2xl space-y-5">

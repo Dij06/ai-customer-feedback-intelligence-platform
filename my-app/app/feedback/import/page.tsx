@@ -31,9 +31,8 @@ export default function BulkImportPage() {
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
-  const [successCount, setSuccessCount] = useState<number | null>(null);
 
-  // Smart Fuzzy Column Matcher for universal CSV format support
+  // Helper to detect column names
   const detectColumn = (headers: string[], synonyms: string[]): string => {
     for (const syn of synonyms) {
       const found = headers.find((h) => {
@@ -65,7 +64,7 @@ export default function BulkImportPage() {
           return;
         }
 
-        // Header detection (quotes stripped)
+        // Parse headers
         const headers = lines[0]
           .split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
           .map((h) => h.replace(/^"|"$/g, '').trim());
@@ -85,7 +84,7 @@ export default function BulkImportPage() {
           rawRows.push(rowObj);
         }
 
-        // Auto-detect matching columns from any CRM/tool (Zendesk, Intercom, App Store, Typeform, etc.)
+        // Detect matching columns
         const autoContent =
           detectColumn(headers, [
             'content', 'feedback', 'text', 'review', 'comment', 'message',
@@ -122,7 +121,7 @@ export default function BulkImportPage() {
     reader.readAsText(file);
   };
 
-  // Re-map rows dynamically as the user modifies column dropdowns
+  // Map rows dynamically based on selected columns
   const mappedRows: MappedFeedbackItem[] = useMemo(() => {
     if (!parsedData || !contentCol) return [];
 
@@ -147,16 +146,20 @@ export default function BulkImportPage() {
       });
   }, [parsedData, contentCol, sourceCol, nameCol, emailCol]);
 
+  const [importSummary, setImportSummary] = useState<{ imported: number; failed: number } | null>(null);
+
   const handleImportAll = async () => {
     if (mappedRows.length === 0) return;
     setImporting(true);
     setError('');
+    setImportSummary(null);
     let imported = 0;
+    let failed = 0;
 
     for (let i = 0; i < mappedRows.length; i++) {
       const row = mappedRows[i];
       try {
-        await fetch('/api/feedback', {
+        const res = await fetch('/api/feedback', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -166,18 +169,24 @@ export default function BulkImportPage() {
             customerEmail: row.customerEmail,
           }),
         });
-        imported += 1;
-        setProgress(Math.round(((i + 1) / mappedRows.length) * 100));
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success) {
+          imported += 1;
+        } else {
+          failed += 1;
+        }
       } catch (err) {
         console.error(err);
+        failed += 1;
       }
+      setProgress(Math.round(((i + 1) / mappedRows.length) * 100));
     }
 
     setImporting(false);
-    setSuccessCount(imported);
+    setImportSummary({ imported, failed });
     setTimeout(() => {
       router.push('/feedback');
-    }, 1500);
+    }, 2000);
   };
 
   const downloadSampleCSV = () => {
@@ -232,7 +241,7 @@ export default function BulkImportPage() {
           </div>
         )}
 
-        {/* Upload Dropzone */}
+        {/* Upload dropzone */}
         <div className="p-12 sm:p-14 rounded-2xl bg-white dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 text-center transition-all shadow-xs">
           <input
             type="file"
@@ -256,7 +265,7 @@ export default function BulkImportPage() {
           </label>
         </div>
 
-        {/* Universal Column Mapping Configurator */}
+        {/* Column mapping */}
         {parsedData && (
           <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
@@ -341,7 +350,7 @@ export default function BulkImportPage() {
           </div>
         )}
 
-        {/* Live Preview of Parsed Rows */}
+        {/* Preview of parsed rows */}
         {loading && <p className="text-center text-slate-500 dark:text-slate-400 py-6 text-sm font-medium">Parsing CSV & Running AI Previews...</p>}
 
         {mappedRows.length > 0 && (
@@ -365,9 +374,18 @@ export default function BulkImportPage() {
               </div>
             )}
 
-            {successCount !== null && (
-              <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-semibold">
-                Successfully imported {successCount} feedbacks! Redirecting to inbox...
+            {importSummary !== null && (
+              <div className={`p-4 rounded-xl text-xs font-semibold border ${
+                importSummary.failed === 0
+                  ? 'bg-emerald-50 dark:bg-emerald-500/15 border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+                  : 'bg-amber-50 dark:bg-amber-500/15 border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-300'
+              }`}>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold">Import Summary:</span>
+                  <span>{importSummary.imported} rows imported successfully</span>
+                  {importSummary.failed > 0 && <span className="text-rose-600 dark:text-rose-400">({importSummary.failed} failed validation)</span>}
+                  <span className="ml-auto text-slate-500">Redirecting to inbox...</span>
+                </div>
               </div>
             )}
 

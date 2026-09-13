@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getWorkspaceContext, canIngestFeedback, forbiddenResponse } from '@/lib/rbac';
+import { getWorkspaceContext, canIngestFeedback, unauthorizedResponse, forbiddenResponse } from '@/lib/rbac';
+import { ThemeCreateSchema } from '@/lib/validations';
 
 export async function GET(req: NextRequest) {
   try {
     const context = await getWorkspaceContext(req);
+    if (!context) {
+      return unauthorizedResponse();
+    }
     const { searchParams } = new URL(req.url);
     const themeId = searchParams.get('themeId');
 
@@ -174,17 +178,26 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const context = await getWorkspaceContext(req);
+    if (!context) {
+      return unauthorizedResponse();
+    }
 
     if (!canIngestFeedback(context.userRole)) {
       return forbiddenResponse('Only Admins and Analysts can create new themes.');
     }
 
-    const body = await req.json();
-    const { name, description, color } = body;
+    const rawBody = await req.json().catch(() => ({}));
+    const parseResult = ThemeCreateSchema.safeParse(rawBody);
 
-    if (!name || name.trim() === '') {
-      return NextResponse.json({ success: false, error: 'Theme name is required' }, { status: 400 });
+    if (!parseResult.success) {
+      const errorMessage = parseResult.error.issues.map((e: { message: string }) => e.message).join(', ');
+      return NextResponse.json(
+        { success: false, error: errorMessage, details: parseResult.error.issues },
+        { status: 400 }
+      );
     }
+
+    const { name, description, color } = parseResult.data;
 
     const existing = await prisma.theme.findFirst({
       where: {

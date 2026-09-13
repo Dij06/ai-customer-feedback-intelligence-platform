@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 interface ReportData {
@@ -49,30 +49,33 @@ export default function ReportsPage() {
   const [period, setPeriod] = useState<'7d' | '30d' | '90d'>('30d');
   const [userRole, setUserRole] = useState<'ADMIN' | 'ANALYST' | 'VIEWER'>('ADMIN');
 
-  const fetchReports = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/reports');
-      const data = await res.json();
-      if (data.success) {
-        setReports(data.reports || []);
-        if (data.reports && data.reports.length > 0) {
-          setSelectedReport(data.reports[0]);
-        }
-        if (data.context?.userRole) {
-          setUserRole(data.context.userRole);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to load VoC reports:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    fetchReports();
-  }, [fetchReports]);
+    let ignore = false;
+    async function load() {
+      try {
+        const res = await fetch('/api/reports');
+        const data = await res.json();
+        if (!ignore && data.success) {
+          setReports(data.reports || []);
+          if (data.reports && data.reports.length > 0) {
+            setSelectedReport(data.reports[0]);
+          }
+          if (data.context?.userRole) {
+            setUserRole(data.context.userRole);
+          }
+        }
+      } catch (err) {
+        if (!ignore) console.error('Failed to load VoC reports:', err);
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   const handleGenerateReport = async () => {
     setGenerating(true);
@@ -106,7 +109,7 @@ export default function ReportsPage() {
     <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors print:bg-white print:text-black">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         
-        {/* Top Header */}
+        {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-6 print:hidden">
           <div>
             <div className="flex items-center gap-2">
@@ -145,7 +148,7 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        {/* Generator Controls */}
+        {/* Report controls */}
         <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800/80 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 print:hidden">
           <div className="space-y-1">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Select Timeframe</span>
@@ -182,10 +185,10 @@ export default function ReportsPage() {
           </button>
         </div>
 
-        {/* Report Content + Sidebar Archive Grid */}
+        {/* Report view and sidebar */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
           
-          {/* Saved Reports Sidebar */}
+          {/* Previous reports sidebar */}
           <div className="lg:col-span-1 space-y-3 print:hidden">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 px-1">
               Previous Reports ({reports.length})
@@ -231,12 +234,12 @@ export default function ReportsPage() {
             )}
           </div>
 
-          {/* Report Viewer / Canvas */}
+          {/* Report viewer */}
           <div className="lg:col-span-3">
             {selectedReport ? (
               <div className="p-8 sm:p-10 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800/80 shadow-xs space-y-8 print:p-0 print:border-none print:shadow-none">
                 
-                {/* Report Header */}
+                {/* Report header */}
                 <div className="border-b border-slate-200 dark:border-slate-800 pb-6 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
@@ -254,7 +257,7 @@ export default function ReportsPage() {
                   </div>
                 </div>
 
-                {/* Executive Summary */}
+                {/* Executive summary */}
                 <div className="space-y-2">
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Executive Summary
@@ -264,7 +267,7 @@ export default function ReportsPage() {
                   </div>
                 </div>
 
-                {/* Stat Metrics Grid */}
+                {/* Stats grid */}
                 <div className="space-y-2">
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Feedback Numbers &amp; Sentiment
@@ -297,7 +300,7 @@ export default function ReportsPage() {
                   </div>
                 </div>
 
-                {/* Top Surging Themes Table */}
+                {/* Top themes table */}
                 <div className="space-y-3">
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Top Feedback Themes
@@ -336,7 +339,7 @@ export default function ReportsPage() {
                   </div>
                 </div>
 
-                {/* Notable Verbatim Quotes */}
+                {/* Customer quotes */}
                 <div className="space-y-3">
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     What Customers Are Saying
@@ -369,7 +372,7 @@ export default function ReportsPage() {
                   </div>
                 </div>
 
-                {/* Prioritized Recommended Actions */}
+                {/* Recommended action items */}
                 <div className="space-y-3">
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Recommended Next Steps

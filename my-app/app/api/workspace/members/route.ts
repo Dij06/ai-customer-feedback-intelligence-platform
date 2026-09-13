@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getWorkspaceContext, canManageMembers, forbiddenResponse, UserRole } from '@/lib/rbac';
+import { getWorkspaceContext, canManageMembers, unauthorizedResponse, forbiddenResponse, UserRole } from '@/lib/rbac';
+import { MemberInviteSchema, MemberRoleUpdateSchema } from '@/lib/validations';
 
 export async function GET(req: NextRequest) {
   try {
     const context = await getWorkspaceContext(req);
+    if (!context) {
+      return unauthorizedResponse();
+    }
 
     const workspace = await prisma.workspace.findUnique({
       where: { id: context.workspaceId },
@@ -43,6 +47,8 @@ export async function GET(req: NextRequest) {
         slug: workspace.slug,
       },
       currentRole: context.userRole,
+      currentUserEmail: context.userEmail,
+      currentUserId: context.userId,
       members: formattedMembers,
     });
   } catch (error: unknown) {
@@ -57,24 +63,29 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const context = await getWorkspaceContext(req);
+    if (!context) {
+      return unauthorizedResponse();
+    }
 
     if (!canManageMembers(context.userRole)) {
       return forbiddenResponse('Only Admins can invite and add workspace members.');
     }
 
-    const body = await req.json();
-    const { email, name, role = 'VIEWER' } = body;
+    const rawBody = await req.json().catch(() => ({}));
+    const parseResult = MemberInviteSchema.safeParse(rawBody);
 
-    if (!email || !email.includes('@')) {
+    if (!parseResult.success) {
+      const errorMessage = parseResult.error.issues.map((e: { message: string }) => e.message).join(', ');
       return NextResponse.json(
-        { success: false, error: 'Valid email address is required' },
+        { success: false, error: errorMessage, details: parseResult.error.issues },
         { status: 400 }
       );
     }
 
-    const validatedRole = (['ADMIN', 'ANALYST', 'VIEWER'].includes(role) ? role : 'VIEWER') as UserRole;
+    const { email, name, role = 'VIEWER' } = parseResult.data;
+    const validatedRole = role as UserRole;
 
-    // Connect or create user
+    // Connect or create user in DB
     const user = await prisma.user.upsert({
       where: { email },
       update: { name: name || undefined },
@@ -85,7 +96,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Add membership
+    // Add membership strictly scoped to current workspace
     const membership = await prisma.workspaceMember.upsert({
       where: {
         userId_workspaceId: {
@@ -124,18 +135,39 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const context = await getWorkspaceContext(req);
+    if (!context) {
+      return unauthorizedResponse();
+    }
 
     if (!canManageMembers(context.userRole)) {
       return forbiddenResponse('Only Admins are permitted to update member roles.');
     }
 
-    const body = await req.json();
-    const { membershipId, newRole } = body;
+    const rawBody = await req.json().catch(() => ({}));
+    const parseResult = MemberRoleUpdateSchema.safeParse(rawBody);
 
-    if (!membershipId || !newRole || !['ADMIN', 'ANALYST', 'VIEWER'].includes(newRole)) {
+    if (!parseResult.success) {
+      const errorMessage = parseResult.error.issues.map((e: { message: string }) => e.message).join(', ');
       return NextResponse.json(
-        { success: false, error: 'Valid membershipId and newRole (ADMIN, ANALYST, VIEWER) are required' },
+        { success: false, error: errorMessage, details: parseResult.error.issues },
         { status: 400 }
+      );
+    }
+
+    const { membershipId, newRole } = parseResult.data;
+
+    // Explicit tenant isolation check: verify membership belongs to the active workspace
+    const existingMember = await prisma.workspaceMember.findFirst({
+      where: {
+        id: membershipId,
+        workspaceId: context.workspaceId,
+      },
+    });
+
+    if (!existingMember) {
+      return NextResponse.json(
+        { success: false, error: 'Member not found in this workspace' },
+        { status: 404 }
       );
     }
 
@@ -161,6 +193,9 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const context = await getWorkspaceContext(req);
+    if (!context) {
+      return unauthorizedResponse();
+    }
 
     if (!canManageMembers(context.userRole)) {
       return forbiddenResponse('Only Admins are permitted to remove members.');
@@ -174,6 +209,38 @@ export async function DELETE(req: NextRequest) {
         { success: false, error: 'membershipId parameter is required' },
         { status: 400 }
       );
+    }
+
+    // Explicit tenant isolation check: verify membership belongs to the active workspace
+    const existingMember = await prisma.workspaceMember.findFirst({
+      where: {
+        id: membershipId,
+        workspaceId: context.workspaceId,
+      },
+    });
+
+    if (!existingMember) {
+      return NextResponse.json(
+        { success: false, error: 'Member not found in this workspace' },
+        { status: 404 }
+      );
+    }
+
+    // Prevent removing the only Admin of the workspace
+    if (existingMember.userId === context.userId) {
+      const adminCount = await prisma.workspaceMember.count({
+        where: {
+          workspaceId: context.workspaceId,
+          role: 'ADMIN',
+        },
+      });
+
+      if (adminCount <= 1) {
+        return NextResponse.json(
+          { success: false, error: 'Cannot remove the only Admin from the workspace.' },
+          { status: 400 }
+        );
+      }
     }
 
     await prisma.workspaceMember.delete({

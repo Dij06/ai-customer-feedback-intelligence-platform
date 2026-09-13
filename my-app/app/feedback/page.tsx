@@ -3,6 +3,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 
+interface FeedbackThemeItem {
+  theme: {
+    id: string;
+    name: string;
+    color: string;
+  };
+}
+
 interface FeedbackItem {
   id: string;
   content: string;
@@ -16,6 +24,7 @@ interface FeedbackItem {
   customerEmail: string | null;
   summary: string | null;
   tags: string[];
+  feedbackThemes?: FeedbackThemeItem[];
   createdAt: string;
 }
 
@@ -35,8 +44,15 @@ interface Pagination {
   totalPages: number;
 }
 
+interface WorkspaceTheme {
+  id: string;
+  name: string;
+  color: string;
+}
+
 export default function FeedbackInboxPage() {
   const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
+  const [workspaceThemes, setWorkspaceThemes] = useState<WorkspaceTheme[]>([]);
   const [stats, setStats] = useState<Stats>({
     total: 0,
     positive: 0,
@@ -62,14 +78,31 @@ export default function FeedbackInboxPage() {
   const [seeding, setSeeding] = useState(false);
   const [actionError, setActionError] = useState<string>('');
 
-  // Filters State
+  // Filter state
   const [search, setSearch] = useState('');
   const [sentimentFilter, setSentimentFilter] = useState('ALL');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
+  const [themeFilter, setThemeFilter] = useState('ALL');
   const [sourceFilter, setSourceFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [dateRangeFilter, setDateRangeFilter] = useState('ALL');
   const [page, setPage] = useState(1);
+
+  // Fetch available workspace themes for the theme filter
+  useEffect(() => {
+    async function loadThemes() {
+      try {
+        const res = await fetch('/api/themes');
+        const data = await res.json();
+        if (data.success && Array.isArray(data.themes)) {
+          setWorkspaceThemes(data.themes.map((t: { id: string; name: string; color: string }) => ({ id: t.id, name: t.name, color: t.color })));
+        }
+      } catch (err) {
+        console.error('Error loading themes:', err);
+      }
+    }
+    loadThemes();
+  }, []);
 
   const fetchFeedbacks = useCallback(async () => {
     setLoading(true);
@@ -82,6 +115,7 @@ export default function FeedbackInboxPage() {
       if (search.trim()) params.set('search', search.trim());
       if (sentimentFilter !== 'ALL') params.set('sentiment', sentimentFilter);
       if (categoryFilter !== 'ALL') params.set('category', categoryFilter);
+      if (themeFilter !== 'ALL') params.set('themeId', themeFilter);
       if (sourceFilter !== 'ALL') params.set('source', sourceFilter);
       if (statusFilter !== 'ALL') params.set('status', statusFilter);
       if (dateRangeFilter !== 'ALL') params.set('dateRange', dateRangeFilter);
@@ -108,13 +142,57 @@ export default function FeedbackInboxPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, sentimentFilter, categoryFilter, sourceFilter, statusFilter, dateRangeFilter]);
+  }, [page, search, sentimentFilter, categoryFilter, themeFilter, sourceFilter, statusFilter, dateRangeFilter]);
 
   useEffect(() => {
-    fetchFeedbacks();
-  }, [fetchFeedbacks]);
+    let ignore = false;
+    async function load() {
+      try {
+        const params = new URLSearchParams();
+        params.set('page', page.toString());
+        params.set('limit', '20');
 
-  // Debounced search / filter reset to page 1
+        if (search.trim()) params.set('search', search.trim());
+        if (sentimentFilter !== 'ALL') params.set('sentiment', sentimentFilter);
+        if (categoryFilter !== 'ALL') params.set('category', categoryFilter);
+        if (themeFilter !== 'ALL') params.set('themeId', themeFilter);
+        if (sourceFilter !== 'ALL') params.set('source', sourceFilter);
+        if (statusFilter !== 'ALL') params.set('status', statusFilter);
+        if (dateRangeFilter !== 'ALL') params.set('dateRange', dateRangeFilter);
+
+        const res = await fetch(`/api/feedback?${params.toString()}`);
+        const data = await res.json();
+
+        if (!ignore) {
+          if (data.success) {
+            const list = Array.isArray(data.feedbacks) ? data.feedbacks : (Array.isArray(data.feedback) ? data.feedback : []);
+            setFeedbacks(list);
+            if (data.stats) setStats(data.stats);
+            if (data.pagination) setPagination(data.pagination);
+            if (data.context) {
+              setContext({
+                workspaceName: data.context.workspaceName || 'Workspace',
+                userRole: data.context.userRole || 'ADMIN',
+              });
+            }
+          } else {
+            setFeedbacks([]);
+          }
+        }
+      } catch (err) {
+        if (!ignore) console.error('Error fetching feedbacks:', err);
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      ignore = true;
+    };
+  }, [page, search, sentimentFilter, categoryFilter, themeFilter, sourceFilter, statusFilter, dateRangeFilter]);
+
+  // Filter change helper
   const handleFilterChange = (setter: (val: string) => void, val: string) => {
     setter(val);
     setPage(1);
@@ -287,7 +365,7 @@ export default function FeedbackInboxPage() {
         </div>
       </div>
 
-      {/* Role Notice & Error Alerts */}
+      {/* Role notice and error alerts */}
       {actionError && (
         <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-500/15 border border-rose-200 dark:border-rose-500/30 text-xs sm:text-sm text-rose-700 dark:text-rose-300 flex items-center justify-between shadow-xs">
           <div className="flex items-center gap-2">
@@ -311,7 +389,7 @@ export default function FeedbackInboxPage() {
         </div>
       )}
 
-      {/* KPI Stats Bar */}
+      {/* Stats bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200/90 dark:border-slate-800 shadow-xs">
           <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Feedback</p>
@@ -331,7 +409,7 @@ export default function FeedbackInboxPage() {
         </div>
       </div>
 
-      {/* Search & Multi-filter Toolbar */}
+      {/* Search and filters */}
       <div className="p-4 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-col md:flex-row gap-3 items-center justify-between">
         <div className="w-full md:w-80 relative">
           <input
@@ -360,14 +438,27 @@ export default function FeedbackInboxPage() {
             <option value="Negative">Negative (NEG)</option>
           </select>
 
-          {/* Category/Theme Filter */}
+          {/* Theme Filter */}
+          <select
+            value={themeFilter}
+            onChange={(e) => handleFilterChange(setThemeFilter, e.target.value)}
+            aria-label="Filter by theme"
+            className="px-3 py-2 text-xs font-medium bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-700 dark:text-slate-300 focus:outline-none focus:border-blue-500"
+          >
+            <option value="ALL">All Themes</option>
+            {workspaceThemes.map((th) => (
+              <option key={th.id} value={th.id}>{th.name}</option>
+            ))}
+          </select>
+
+          {/* Category Filter */}
           <select
             value={categoryFilter}
             onChange={(e) => handleFilterChange(setCategoryFilter, e.target.value)}
             aria-label="Filter by category"
             className="px-3 py-2 text-xs font-medium bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-700 dark:text-slate-300 focus:outline-none focus:border-blue-500"
           >
-            <option value="ALL">All Themes</option>
+            <option value="ALL">All Categories</option>
             <option value="Performance">Performance</option>
             <option value="Bug">Bug</option>
             <option value="Feature Request">Feature Request</option>
@@ -420,7 +511,7 @@ export default function FeedbackInboxPage() {
         </div>
       </div>
 
-      {/* Feedback Feed */}
+      {/* Feedback list */}
       {loading ? (
         <div className="text-center py-20 text-slate-400 font-medium">Loading feedback...</div>
       ) : feedbacks.length === 0 ? (
@@ -456,6 +547,15 @@ export default function FeedbackInboxPage() {
                       {item.category}
                     </span>
                   )}
+                  {/* Theme Badges */}
+                  {item.feedbackThemes && item.feedbackThemes.length > 0 && item.feedbackThemes.map((ft, idx) => (
+                    <span
+                      key={idx}
+                      className="text-xs px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-500/10 dark:text-purple-300 dark:border-purple-500/20 font-medium"
+                    >
+                      🏷️ {ft.theme.name}
+                    </span>
+                  ))}
                   {item.urgency && item.urgency !== 'Low' && (
                     <span className={`text-xs px-2.5 py-0.5 rounded-md border font-semibold ${getUrgencyBadge(item.urgency)}`}>
                       {item.urgency} Urgency
@@ -489,7 +589,7 @@ export default function FeedbackInboxPage() {
                 )}
               </div>
 
-              {/* Action Controls */}
+              {/* Action buttons */}
               <div
                 className="flex items-center gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100 dark:border-slate-800 shrink-0"
                 onClick={(e) => e.stopPropagation()}
@@ -538,7 +638,7 @@ export default function FeedbackInboxPage() {
         </div>
       )}
 
-      {/* Pagination Controls */}
+      {/* Pagination */}
       {pagination.totalPages > 1 && (
         <div className="flex items-center justify-between pt-6 border-t border-slate-200 dark:border-slate-800 text-xs">
           <span className="text-slate-500 dark:text-slate-400">
@@ -564,7 +664,7 @@ export default function FeedbackInboxPage() {
         </div>
       )}
 
-      {/* Feedback Detail Modal */}
+      {/* Feedback detail modal */}
       {selectedFeedback && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-2xl space-y-5">

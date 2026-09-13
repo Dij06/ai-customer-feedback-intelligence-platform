@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 
 interface FeedbackItem {
@@ -18,78 +18,208 @@ interface FeedbackItem {
   createdAt: string;
 }
 
+interface ChartPoint {
+  label: string;
+  fullDate: string;
+  count: number;
+}
+
 export default function DashboardPage() {
   const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [timeframe, setTimeframe] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
   const [actioningId, setActioningId] = useState<string | null>(null);
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   const fetchDashboardData = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      const res = await fetch(`/api/feedback?dateRange=${timeframe}&limit=150`);
+      const res = await fetch(`/api/feedback?dateRange=${timeframe}&limit=200`);
+      if (!res.ok) {
+        throw new Error(`Server returned status ${res.status}`);
+      }
       const data = await res.json();
       if (data.success) {
         setFeedbacks(data.feedback || data.feedbacks || []);
+      } else {
+        throw new Error(data.error || 'Failed to load feedback data');
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to load dashboard metrics:', err);
+      setError(err instanceof Error ? err.message : 'Could not connect to the feedback database. Please try again.');
     } finally {
       setLoading(false);
     }
   }, [timeframe]);
 
   useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
+    let isMounted = true;
+    async function loadData() {
+      try {
+        const res = await fetch(`/api/feedback?dateRange=${timeframe}&limit=200`);
+        if (!res.ok) throw new Error(`Server returned status ${res.status}`);
+        const data = await res.json();
+        if (isMounted) {
+          if (data.success) {
+            setFeedbacks(data.feedback || data.feedbacks || []);
+          } else {
+            setError(data.error || 'Failed to load feedback data');
+          }
+        }
+      } catch (err: unknown) {
+        if (isMounted) {
+          console.error('Failed to load dashboard metrics:', err);
+          setError(err instanceof Error ? err.message : 'Could not connect to database.');
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    }
 
-  // Derived Analytics Metrics
+    loadData();
+    return () => {
+      isMounted = false;
+    };
+  }, [timeframe]);
+
+  // Metrics calculation
   const total = feedbacks.length;
-  const positiveFeedbacks = feedbacks.filter((f) => f.sentiment === 'Positive');
-  const neutralFeedbacks = feedbacks.filter((f) => f.sentiment === 'Neutral');
-  const negativeFeedbacks = feedbacks.filter((f) => f.sentiment === 'Negative');
-  const highUrgencyItems = feedbacks.filter((f) => f.urgency === 'High' && f.status !== 'ACTIONED');
+  const positiveFeedbacks = useMemo(() => feedbacks.filter((f) => f.sentiment === 'Positive'), [feedbacks]);
+  const neutralFeedbacks = useMemo(() => feedbacks.filter((f) => f.sentiment === 'Neutral'), [feedbacks]);
+  const negativeFeedbacks = useMemo(() => feedbacks.filter((f) => f.sentiment === 'Negative'), [feedbacks]);
+  const highUrgencyItems = useMemo(() => feedbacks.filter((f) => f.urgency === 'High' && f.status !== 'ACTIONED'), [feedbacks]);
 
   const positivePercent = total > 0 ? Math.round((positiveFeedbacks.length / total) * 100) : 0;
   const neutralPercent = total > 0 ? Math.round((neutralFeedbacks.length / total) * 100) : 0;
   const negativePercent = total > 0 ? Math.round((negativeFeedbacks.length / total) * 100) : 0;
-
-  // Calculate Net Sentiment Score (-100 to +100)
   const netSentiment = positivePercent - negativePercent;
 
-  // Category Aggregation
-  const categoryCounts: Record<string, { total: number; positive: number; negative: number }> = {};
-  feedbacks.forEach((f) => {
-    const cat = f.category || 'General';
-    if (!categoryCounts[cat]) {
-      categoryCounts[cat] = { total: 0, positive: 0, negative: 0 };
+  // Category breakdown calculation
+  const categoryCounts = useMemo(() => {
+    const map: Record<string, { total: number; positive: number; negative: number }> = {};
+    feedbacks.forEach((f) => {
+      const cat = f.category || 'General';
+      if (!map[cat]) {
+        map[cat] = { total: 0, positive: 0, negative: 0 };
+      }
+      map[cat].total += 1;
+      if (f.sentiment === 'Positive') map[cat].positive += 1;
+      if (f.sentiment === 'Negative') map[cat].negative += 1;
+    });
+    return map;
+  }, [feedbacks]);
+
+  const sortedCategories = useMemo(() => {
+    return Object.entries(categoryCounts).sort((a, b) => b[1].total - a[1].total);
+  }, [categoryCounts]);
+
+  // Sources breakdown calculation
+  const channelCounts = useMemo(() => {
+    const map: Record<string, number> = {};
+    feedbacks.forEach((f) => {
+      const src = f.source || 'Other';
+      map[src] = (map[src] || 0) + 1;
+    });
+    return map;
+  }, [feedbacks]);
+
+  // Dynamic real-data time-series bucketing
+  const chartPoints: ChartPoint[] = useMemo(() => {
+    const now = new Date();
+
+    if (timeframe === '7d') {
+      // 7 daily buckets from 6 days ago up to today
+      const points: ChartPoint[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        const dateKey = d.toISOString().slice(0, 10);
+        const label = d.toLocaleDateString(undefined, { weekday: 'short' });
+        const fullDate = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+        const count = feedbacks.filter((f) => {
+          if (!f.createdAt) return false;
+          return f.createdAt.slice(0, 10) === dateKey;
+        }).length;
+
+        points.push({ label, fullDate, count });
+      }
+      return points;
     }
-    categoryCounts[cat].total += 1;
-    if (f.sentiment === 'Positive') categoryCounts[cat].positive += 1;
-    if (f.sentiment === 'Negative') categoryCounts[cat].negative += 1;
-  });
 
-  const sortedCategories = Object.entries(categoryCounts).sort((a, b) => b[1].total - a[1].total);
+    if (timeframe === '30d') {
+      // 6 five-day interval buckets
+      const points: ChartPoint[] = [];
+      for (let i = 5; i >= 0; i--) {
+        const startD = new Date(now);
+        startD.setDate(startD.getDate() - (i + 1) * 5);
+        const endD = new Date(now);
+        endD.setDate(endD.getDate() - i * 5);
 
-  // Channel Aggregation
-  const channelCounts: Record<string, number> = {};
-  feedbacks.forEach((f) => {
-    const src = f.source || 'Other';
-    channelCounts[src] = (channelCounts[src] || 0) + 1;
-  });
+        const label = `${startD.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' })}`;
+        const fullDate = `${startD.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - ${endD.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
 
-  // Time-series grouping for Area Chart (last 7 data buckets)
-  const chartPoints = [
-    { label: 'Mon', count: Math.max(2, Math.round(total * 0.12)) },
-    { label: 'Tue', count: Math.max(4, Math.round(total * 0.18)) },
-    { label: 'Wed', count: Math.max(3, Math.round(total * 0.15)) },
-    { label: 'Thu', count: Math.max(6, Math.round(total * 0.22)) },
-    { label: 'Fri', count: Math.max(5, Math.round(total * 0.19)) },
-    { label: 'Sat', count: Math.max(1, Math.round(total * 0.06)) },
-    { label: 'Sun', count: Math.max(2, Math.round(total * 0.08)) },
-  ];
+        const count = feedbacks.filter((f) => {
+          if (!f.createdAt) return false;
+          const fd = new Date(f.createdAt);
+          return fd >= startD && fd <= endD;
+        }).length;
 
-  const maxChartCount = Math.max(...chartPoints.map((p) => p.count), 10);
+        points.push({ label, fullDate, count });
+      }
+      return points;
+    }
+
+    if (timeframe === '90d') {
+      // 6 fifteen-day interval buckets
+      const points: ChartPoint[] = [];
+      for (let i = 5; i >= 0; i--) {
+        const startD = new Date(now);
+        startD.setDate(startD.getDate() - (i + 1) * 15);
+        const endD = new Date(now);
+        endD.setDate(endD.getDate() - i * 15);
+
+        const label = `${startD.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+        const fullDate = `${startD.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - ${endD.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+
+        const count = feedbacks.filter((f) => {
+          if (!f.createdAt) return false;
+          const fd = new Date(f.createdAt);
+          return fd >= startD && fd <= endD;
+        }).length;
+
+        points.push({ label, fullDate, count });
+      }
+      return points;
+    }
+
+    // 'all' timeframe: last 6 calendar months
+    const points: ChartPoint[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const startD = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const endD = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
+      const label = startD.toLocaleDateString(undefined, { month: 'short' });
+      const fullDate = startD.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+
+      const count = feedbacks.filter((f) => {
+        if (!f.createdAt) return false;
+        const fd = new Date(f.createdAt);
+        return fd >= startD && fd <= endD;
+      }).length;
+
+      points.push({ label, fullDate, count });
+    }
+    return points;
+  }, [feedbacks, timeframe]);
+
+  const maxChartCount = useMemo(() => {
+    const maxVal = Math.max(...chartPoints.map((p) => p.count), 0);
+    return maxVal === 0 ? 1 : maxVal;
+  }, [chartPoints]);
 
   const handleResolveUrgent = async (id: string) => {
     setActioningId(id);
@@ -108,8 +238,6 @@ export default function DashboardPage() {
       setActioningId(null);
     }
   };
-
-  const [showExportMenu, setShowExportMenu] = useState(false);
 
   const exportAsCSV = () => {
     if (feedbacks.length === 0) return;
@@ -153,6 +281,35 @@ export default function DashboardPage() {
     setShowExportMenu(false);
   };
 
+  // SVG Area path generation
+  const svgWidth = 700;
+  const svgHeight = 160;
+  const bottomY = 140;
+  const topY = 25;
+  const usableHeight = bottomY - topY;
+
+  const pointCoords = useMemo(() => {
+    const n = chartPoints.length;
+    if (n === 0) return [];
+    return chartPoints.map((pt, i) => {
+      const x = n > 1 ? (i / (n - 1)) * 600 + 50 : 350;
+      const y = total > 0 ? bottomY - (pt.count / maxChartCount) * usableHeight : bottomY;
+      return { x, y, count: pt.count, label: pt.label, fullDate: pt.fullDate };
+    });
+  }, [chartPoints, maxChartCount, total, usableHeight]);
+
+  const areaPathD = useMemo(() => {
+    if (pointCoords.length === 0) return '';
+    const pointsStr = pointCoords.map((p) => `L ${p.x},${p.y}`).join(' ');
+    const firstX = pointCoords[0].x;
+    const lastX = pointCoords[pointCoords.length - 1].x;
+    return `M ${firstX},${bottomY} ${pointsStr} L ${lastX},${bottomY} Z`;
+  }, [pointCoords]);
+
+  const linePointsStr = useMemo(() => {
+    return pointCoords.map((p) => `${p.x},${p.y}`).join(' ');
+  }, [pointCoords]);
+
   return (
     <div className="bg-[#F8F9FA] dark:bg-[#0b0f19] min-h-[calc(100vh-4rem)] transition-colors py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
@@ -178,6 +335,7 @@ export default function DashboardPage() {
               <select
                 value={timeframe}
                 onChange={(e) => setTimeframe(e.target.value as '7d' | '30d' | '90d' | 'all')}
+                aria-label="Select timeframe"
                 className="appearance-none pl-3.5 pr-8 py-2 text-xs font-bold text-[#1A1F36] dark:text-slate-200 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl shadow-xs transition-all cursor-pointer focus:outline-none focus:border-[#2D68FF]"
               >
                 <option value="7d">Past 7 Days</option>
@@ -254,18 +412,52 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* Error State Banner */}
+        {error && (
+          <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/80 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="text-rose-600 dark:text-rose-400 text-lg">⚠️</span>
+              <div>
+                <p className="text-xs font-bold text-rose-900 dark:text-rose-200">Unable to load analytics data</p>
+                <p className="text-xs text-rose-700 dark:text-rose-400">{error}</p>
+              </div>
+            </div>
+            <button
+              onClick={fetchDashboardData}
+              className="px-3.5 py-1.5 text-xs font-bold text-rose-700 dark:text-rose-300 bg-white dark:bg-rose-900/60 border border-rose-300 dark:border-rose-700 rounded-xl hover:bg-rose-100 dark:hover:bg-rose-800/80 transition-all"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {/* Loading State Skeleton */}
         {loading ? (
-          <div className="text-center py-24 text-slate-400 font-medium">Loading your feedback dashboard...</div>
+          <div className="space-y-8 animate-pulse">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-28 rounded-2xl bg-slate-200 dark:bg-slate-800/60" />
+              ))}
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 h-72 rounded-2xl bg-slate-200 dark:bg-slate-800/60" />
+              <div className="h-72 rounded-2xl bg-slate-200 dark:bg-slate-800/60" />
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 h-56 rounded-2xl bg-slate-200 dark:bg-slate-800/60" />
+              <div className="h-56 rounded-2xl bg-slate-200 dark:bg-slate-800/60" />
+            </div>
+          </div>
         ) : (
           <div className="space-y-8">
-            {/* Executive Stat KPI Cards */}
+            {/* KPI Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Card 1: Total Feedback */}
+              {/* Total Feedback */}
               <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-sm transition-all">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Feedback</span>
                   <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20">
-                    +14.8%
+                    {timeframe === '7d' ? '7 Days' : timeframe === '30d' ? '30 Days' : timeframe === '90d' ? '90 Days' : 'All Time'}
                   </span>
                 </div>
                 <p className="text-3xl font-extrabold text-slate-900 dark:text-white mt-2 font-mono">{total}</p>
@@ -274,7 +466,7 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Card 2: Customer Happiness Score */}
+              {/* Customer Happiness Score */}
               <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-sm transition-all">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Happy Customers</span>
@@ -293,7 +485,7 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Card 3: Urgent Issues */}
+              {/* Urgent Issues */}
               <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-sm transition-all">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Urgent Issues</span>
@@ -303,113 +495,141 @@ export default function DashboardPage() {
                 </div>
                 <p className="text-3xl font-extrabold text-rose-600 dark:text-rose-400 mt-2 font-mono">{highUrgencyItems.length}</p>
                 <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mt-2">
-                  <span>Bugs & billing issues to fix</span>
+                  <span>Bugs & critical feedback to address</span>
                 </div>
               </div>
 
-              {/* Card 4: Top Topic */}
+              {/* Top Category */}
               <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-sm transition-all">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Top Topic</span>
                   <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-300 dark:border-indigo-500/20">
-                    Most Talked About
+                    Most Discussed
                   </span>
                 </div>
                 <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-300 mt-2 truncate">
                   {sortedCategories.length > 0 ? sortedCategories[0][0] : 'General'}
                 </p>
                 <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mt-2">
-                  <span>{sortedCategories.length > 0 ? `${sortedCategories[0][1].total} reviews` : 'No data'}</span>
+                  <span>{sortedCategories.length > 0 ? `${sortedCategories[0][1].total} reviews` : 'No data recorded'}</span>
                 </div>
               </div>
             </div>
 
-            {/* Core Analytics Grid: Time Series Area Chart + Sentiment Gauge */}
+            {/* Empty state alert when 0 items */}
+            {total === 0 && (
+              <div className="p-8 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200/90 dark:border-slate-800 shadow-xs text-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-500/10 text-[#2D68FF] flex items-center justify-center mx-auto text-xl font-bold">
+                  💬
+                </div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">No feedback recorded for this period</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+                  There are no customer feedback items recorded in this timeframe ({timeframe}). You can submit fresh feedback or choose a different date range.
+                </p>
+                <div className="pt-2 flex justify-center gap-3">
+                  <Link
+                    href="/feedback/new"
+                    className="px-4 py-2 text-xs font-bold text-white bg-[#2D68FF] hover:bg-blue-600 rounded-xl transition-all"
+                  >
+                    + Add New Feedback
+                  </Link>
+                  <Link
+                    href="/feedback"
+                    className="px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-all"
+                  >
+                    Open Feedback Inbox
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            {/* Charts Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Feedback Over Time Chart */}
+              {/* Chart 1: Feedback Over Time Chart (Area Trend) */}
               <div className="lg:col-span-2 p-6 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Feedback Over Time</h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Reviews received across recent days</p>
+                    <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Feedback Volume Over Time</h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Real feedback arrivals across active date intervals</p>
                   </div>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">Total: <strong className="text-slate-900 dark:text-white font-mono">{total}</strong></span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">Total in view: <strong className="text-slate-900 dark:text-white font-mono">{total}</strong></span>
                 </div>
 
-                {/* Responsive SVG Smooth Area Line Chart */}
+                {/* Area chart */}
                 <div className="w-full h-48 relative pt-4">
-                  <svg className="w-full h-full overflow-visible" viewBox="0 0 700 160" preserveAspectRatio="none">
-                    <defs>
-                      <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
-                        <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.0" />
-                      </linearGradient>
-                    </defs>
+                  {total === 0 ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 text-xs border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
+                      <span>No volume trend data available</span>
+                    </div>
+                  ) : (
+                    <svg className="w-full h-full overflow-visible" viewBox={`0 0 ${svgWidth} ${svgHeight}`} preserveAspectRatio="none">
+                      <defs>
+                        <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#2D68FF" stopOpacity="0.35" />
+                          <stop offset="100%" stopColor="#2D68FF" stopOpacity="0.0" />
+                        </linearGradient>
+                      </defs>
 
-                    {/* Horizontal Grid lines */}
-                    <line x1="0" y1="20" x2="700" y2="20" stroke="currentColor" className="text-slate-200 dark:text-slate-800" strokeDasharray="4 4" />
-                    <line x1="0" y1="70" x2="700" y2="70" stroke="currentColor" className="text-slate-200 dark:text-slate-800" strokeDasharray="4 4" />
-                    <line x1="0" y1="120" x2="700" y2="120" stroke="currentColor" className="text-slate-200 dark:text-slate-800" strokeDasharray="4 4" />
+                      {/* Horizontal Grid lines */}
+                      <line x1="0" y1="30" x2={svgWidth} y2="30" stroke="currentColor" className="text-slate-200 dark:text-slate-800" strokeDasharray="4 4" />
+                      <line x1="0" y1="80" x2={svgWidth} y2="80" stroke="currentColor" className="text-slate-200 dark:text-slate-800" strokeDasharray="4 4" />
+                      <line x1="0" y1={bottomY} x2={svgWidth} y2={bottomY} stroke="currentColor" className="text-slate-200 dark:text-slate-800" />
 
-                    {/* Area fill path */}
-                    <path
-                      d={`M 0,140 
-                        L 50,${140 - (chartPoints[0].count / maxChartCount) * 110} 
-                        L 150,${140 - (chartPoints[1].count / maxChartCount) * 110} 
-                        L 250,${140 - (chartPoints[2].count / maxChartCount) * 110} 
-                        L 350,${140 - (chartPoints[3].count / maxChartCount) * 110} 
-                        L 450,${140 - (chartPoints[4].count / maxChartCount) * 110} 
-                        L 550,${140 - (chartPoints[5].count / maxChartCount) * 110} 
-                        L 650,${140 - (chartPoints[6].count / maxChartCount) * 110} 
-                        L 700,140 Z`}
-                      fill="url(#areaGradient)"
-                    />
+                      {/* Area fill path */}
+                      {areaPathD && (
+                        <path
+                          d={areaPathD}
+                          fill="url(#areaGradient)"
+                        />
+                      )}
 
-                    {/* Top glowing line */}
-                    <polyline
-                      points={`50,${140 - (chartPoints[0].count / maxChartCount) * 110} 
-                            150,${140 - (chartPoints[1].count / maxChartCount) * 110} 
-                            250,${140 - (chartPoints[2].count / maxChartCount) * 110} 
-                            350,${140 - (chartPoints[3].count / maxChartCount) * 110} 
-                            450,${140 - (chartPoints[4].count / maxChartCount) * 110} 
-                            550,${140 - (chartPoints[5].count / maxChartCount) * 110} 
-                            650,${140 - (chartPoints[6].count / maxChartCount) * 110}`}
-                      fill="none"
-                      stroke="#3b82f6"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
+                      {/* Top glowing line */}
+                      {linePointsStr && (
+                        <polyline
+                          points={linePointsStr}
+                          fill="none"
+                          stroke="#2D68FF"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      )}
 
-                    {/* Chart Dots */}
-                    {chartPoints.map((pt, i) => (
-                      <circle
-                        key={i}
-                        cx={50 + i * 100}
-                        cy={140 - (pt.count / maxChartCount) * 110}
-                        r="4"
-                        className="fill-blue-600 dark:fill-blue-500 stroke-white dark:stroke-slate-900 stroke-2 hover:r-6 transition-all"
-                      />
-                    ))}
-                  </svg>
+                      {/* Chart Dots */}
+                      {pointCoords.map((pt, i) => (
+                        <g key={i}>
+                          <circle
+                            cx={pt.x}
+                            cy={pt.y}
+                            r="4"
+                            className="fill-[#2D68FF] stroke-white dark:stroke-slate-900 stroke-2 hover:r-6 transition-all"
+                          >
+                            <title>{`${pt.fullDate}: ${pt.count} feedback reviews`}</title>
+                          </circle>
+                        </g>
+                      ))}
+                    </svg>
+                  )}
 
                   {/* X-axis labels */}
                   <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mt-2 px-2">
                     {chartPoints.map((pt, i) => (
-                      <span key={i} className="font-mono">{pt.label}</span>
+                      <span key={i} className="font-mono text-center" title={pt.fullDate}>
+                        {pt.label}
+                      </span>
                     ))}
                   </div>
                 </div>
               </div>
 
-              {/* Sentiment Ring / Radial Multi-Color Breakdown */}
+              {/* Chart 2: Sentiment breakdown (Donut Gauge) */}
               <div className="p-6 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-col justify-between">
                 <div>
                   <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Customer Sentiment</h2>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Positive, neutral, and negative reviews</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Real-time positive, neutral, and negative ratio</p>
                 </div>
 
-                {/* Visual Ring Gauge with All 3 Colors: Green, Yellow, Red */}
+                {/* Donut Gauge */}
                 <div className="relative w-36 h-36 mx-auto my-2 flex items-center justify-center">
                   <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
                     {/* Background Track Circle */}
@@ -421,7 +641,7 @@ export default function DashboardPage() {
                       d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                     />
 
-                    {/* 1. Positive Segment (Emerald Green) */}
+                    {/* Positive Segment (Emerald Green) */}
                     {positivePercent > 0 && (
                       <path
                         className="text-emerald-500 transition-all duration-500"
@@ -434,7 +654,7 @@ export default function DashboardPage() {
                       />
                     )}
 
-                    {/* 2. Neutral Segment (Amber Yellow) */}
+                    {/* Neutral Segment (Amber Yellow) */}
                     {neutralPercent > 0 && (
                       <path
                         className="text-amber-400 transition-all duration-500"
@@ -447,7 +667,7 @@ export default function DashboardPage() {
                       />
                     )}
 
-                    {/* 3. Negative Segment (Rose Red) */}
+                    {/* Negative Segment (Rose Red) */}
                     {negativePercent > 0 && (
                       <path
                         className="text-rose-500 transition-all duration-500"
@@ -462,8 +682,12 @@ export default function DashboardPage() {
                   </svg>
 
                   <div className="absolute flex flex-col items-center">
-                    <span className="text-2xl font-extrabold font-mono text-slate-900 dark:text-white">{positivePercent}%</span>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">Positive</span>
+                    <span className="text-2xl font-extrabold font-mono text-slate-900 dark:text-white">
+                      {total > 0 ? `${positivePercent}%` : '0%'}
+                    </span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">
+                      {total > 0 ? 'Positive' : 'No Data'}
+                    </span>
                   </div>
                 </div>
 
@@ -505,69 +729,81 @@ export default function DashboardPage() {
 
             {/* Theme / Category Volume Distribution */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Category Bars */}
+              {/* Chart 3: Category Bars */}
               <div className="lg:col-span-2 p-6 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Top Feedback Categories</h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">How feedback is distributed across topics</p>
+                    <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Feedback Categories</h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Real category volume and distribution</p>
                   </div>
                   <Link href="/feedback" className="text-xs text-blue-600 dark:text-blue-400 font-semibold hover:underline">
                     View in Inbox →
                   </Link>
                 </div>
 
-                <div className="space-y-3.5 pt-2">
-                  {sortedCategories.map(([cat, data]) => {
-                    const percent = total > 0 ? Math.round((data.total / total) * 100) : 0;
-                    return (
-                      <div key={cat} className="space-y-1.5">
-                        <div className="flex items-center justify-between text-xs">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-slate-800 dark:text-slate-200">{cat}</span>
-                            <span className="text-slate-400 font-mono">({data.total} reviews)</span>
+                {sortedCategories.length === 0 ? (
+                  <div className="py-12 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
+                    No feedback category data found for this period.
+                  </div>
+                ) : (
+                  <div className="space-y-3.5 pt-2">
+                    {sortedCategories.map(([cat, data]) => {
+                      const percent = total > 0 ? Math.round((data.total / total) * 100) : 0;
+                      return (
+                        <div key={cat} className="space-y-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-slate-800 dark:text-slate-200">{cat}</span>
+                              <span className="text-slate-400 font-mono">({data.total} reviews)</span>
+                            </div>
+                            <span className="font-mono font-semibold text-slate-600 dark:text-slate-400">{percent}%</span>
                           </div>
-                          <span className="font-mono font-semibold text-slate-600 dark:text-slate-400">{percent}%</span>
+                          <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden flex">
+                            <div
+                              className="bg-[#2D68FF] h-2 rounded-full transition-all"
+                              style={{ width: `${percent}%` }}
+                            />
+                          </div>
                         </div>
-                        <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden flex">
-                          <div
-                            className="bg-blue-600 dark:bg-blue-500 h-2 rounded-full transition-all"
-                            style={{ width: `${percent}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
-              {/* Ingestion Channels Matrix */}
+              {/* Feedback Sources Breakdown */}
               <div className="p-6 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-4">
                 <div>
                   <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Feedback Sources</h2>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Where your customer reviews come from</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Where your customer reviews originate</p>
                 </div>
 
-                <div className="space-y-2 text-xs">
-                  {Object.entries(channelCounts).map(([source, count]) => {
-                    const share = total > 0 ? Math.round((count / total) * 100) : 0;
-                    return (
-                      <div key={source} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800/60">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-slate-800 dark:text-slate-200">{source}</span>
+                {Object.keys(channelCounts).length === 0 ? (
+                  <div className="py-12 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
+                    No source channels recorded.
+                  </div>
+                ) : (
+                  <div className="space-y-2 text-xs">
+                    {Object.entries(channelCounts).map(([source, count]) => {
+                      const share = total > 0 ? Math.round((count / total) * 100) : 0;
+                      return (
+                        <div key={source} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800/60">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-slate-800 dark:text-slate-200">{source}</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-mono font-semibold text-slate-900 dark:text-slate-100">{count}</span>
+                            <span className="text-[10px] text-slate-400 ml-1.5 font-mono">({share}%)</span>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <span className="font-mono font-semibold text-slate-900 dark:text-slate-100">{count}</span>
-                          <span className="text-[10px] text-slate-400 ml-1.5 font-mono">({share}%)</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Active Triage & Critical Issues Queue */}
+            {/* Urgent Issues Queue */}
             <div className="p-6 rounded-2xl bg-white dark:bg-slate-900/80 border border-rose-200 dark:border-rose-500/25 shadow-xs space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">

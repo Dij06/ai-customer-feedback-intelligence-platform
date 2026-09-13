@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateVoiceOfCustomerReport } from '@/lib/ai';
-import { getWorkspaceContext, canIngestFeedback, forbiddenResponse } from '@/lib/rbac';
+import { getWorkspaceContext, canIngestFeedback, unauthorizedResponse, forbiddenResponse } from '@/lib/rbac';
+import { ReportGenerateSchema } from '@/lib/validations';
 
 export async function GET(req: NextRequest) {
   try {
     const context = await getWorkspaceContext(req);
+    if (!context) {
+      return unauthorizedResponse();
+    }
 
     const reports = await prisma.report.findMany({
       where: {
@@ -51,13 +55,26 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const context = await getWorkspaceContext(req);
+    if (!context) {
+      return unauthorizedResponse();
+    }
 
     if (!canIngestFeedback(context.userRole)) {
       return forbiddenResponse('Only Admins and Analysts can generate executive reports.');
     }
 
-    const body = await req.json().catch(() => ({}));
-    const period = body.period || 'Last 30 Days';
+    const rawBody = await req.json().catch(() => ({}));
+    const parseResult = ReportGenerateSchema.safeParse(rawBody);
+
+    if (!parseResult.success) {
+      const errorMessage = parseResult.error.issues.map((e: { message: string }) => e.message).join(', ');
+      return NextResponse.json(
+        { success: false, error: errorMessage, details: parseResult.error.issues },
+        { status: 400 }
+      );
+    }
+
+    const period = parseResult.data.period || 'Last 30 Days';
 
     // Calculate timeframe filter
     const now = new Date();
@@ -136,6 +153,7 @@ export async function POST(req: NextRequest) {
         periodEnd: now,
         contentJson: JSON.stringify(reportContent),
         workspaceId: context.workspaceId,
+        generatedBy: context.userId,
       },
     });
 
