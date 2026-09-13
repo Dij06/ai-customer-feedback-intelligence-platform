@@ -226,21 +226,12 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // Prevent removing the only Admin of the workspace
+    // Prevent Admin from removing their own account from the workspace
     if (existingMember.userId === context.userId) {
-      const adminCount = await prisma.workspaceMember.count({
-        where: {
-          workspaceId: context.workspaceId,
-          role: 'ADMIN',
-        },
-      });
-
-      if (adminCount <= 1) {
-        return NextResponse.json(
-          { success: false, error: 'Cannot remove the only Admin from the workspace.' },
-          { status: 400 }
-        );
-      }
+      return NextResponse.json(
+        { success: false, error: 'You cannot remove your own account from the workspace.' },
+        { status: 400 }
+      );
     }
 
     await prisma.workspaceMember.delete({

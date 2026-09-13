@@ -39,7 +39,7 @@ export default function AskLoopPage() {
       id: 'welcome',
       role: 'assistant',
       content:
-        "Hello! I'm **Ask LOOP**, your AI assistant for customer feedback. Ask me anything in plain English about what customers like, top complaints, bug reports, or feature requests.",
+        "Hello! I'm **Ask LOOP**, your AI customer intelligence assistant powered by **Grok (xAI)**. Ask me anything in plain English about what customers like, top complaints, bug reports, or feature requests.",
       timestamp: 'Just now',
       suggestedFollowUps: [
         'What are users saying about onboarding & workspace setup?',
@@ -159,7 +159,7 @@ export default function AskLoopPage() {
                   <div className="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-slate-100 dark:border-slate-800 text-2xs text-slate-400">
                     <span className="font-semibold flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
                       <span className="w-2 h-2 rounded-full bg-blue-600" />
-                      {msg.provider || 'LOOP Assistant'}
+                      {msg.provider || 'Grok (xAI)'}
                     </span>
                     {msg.confidence && (
                       <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-slate-600 dark:text-slate-300 font-medium">

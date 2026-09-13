@@ -416,7 +416,9 @@ export default function DashboardPage() {
         {error && (
           <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/80 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <span className="text-rose-600 dark:text-rose-400 text-lg">⚠️</span>
+              <div className="w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold">
+                !
+              </div>
               <div>
                 <p className="text-xs font-bold text-rose-900 dark:text-rose-200">Unable to load analytics data</p>
                 <p className="text-xs text-rose-700 dark:text-rose-400">{error}</p>
@@ -519,8 +521,10 @@ export default function DashboardPage() {
             {/* Empty state alert when 0 items */}
             {total === 0 && (
               <div className="p-8 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200/90 dark:border-slate-800 shadow-xs text-center space-y-3">
-                <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-500/10 text-[#2D68FF] flex items-center justify-center mx-auto text-xl font-bold">
-                  💬
+                <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-500/10 text-[#2D68FF] flex items-center justify-center mx-auto">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
                 </div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-white">No feedback recorded for this period</h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">

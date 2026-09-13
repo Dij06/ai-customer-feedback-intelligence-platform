@@ -553,7 +553,7 @@ export default function FeedbackInboxPage() {
                       key={idx}
                       className="text-xs px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-500/10 dark:text-purple-300 dark:border-purple-500/20 font-medium"
                     >
-                      🏷️ {ft.theme.name}
+                      #{ft.theme.name}
                     </span>
                   ))}
                   {item.urgency && item.urgency !== 'Low' && (

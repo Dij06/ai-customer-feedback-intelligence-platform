@@ -14,6 +14,8 @@ export default function WorkspaceMembersPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [workspace, setWorkspace] = useState<{ id: string; name: string; slug: string } | null>(null);
   const [currentRole, setCurrentRole] = useState<'ADMIN' | 'ANALYST' | 'VIEWER'>('ADMIN');
+  const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [currentUserEmail, setCurrentUserEmail] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -35,6 +37,8 @@ export default function WorkspaceMembersPage() {
         setMembers(data.members);
         setWorkspace(data.workspace);
         setCurrentRole(data.currentRole);
+        if (data.currentUserId) setCurrentUserId(data.currentUserId);
+        if (data.currentUserEmail) setCurrentUserEmail(data.currentUserEmail);
       } else {
         setError(data.error || 'Failed to load team members');
       }
@@ -56,6 +60,8 @@ export default function WorkspaceMembersPage() {
           setMembers(data.members);
           setWorkspace(data.workspace);
           setCurrentRole(data.currentRole);
+          if (data.currentUserId) setCurrentUserId(data.currentUserId);
+          if (data.currentUserEmail) setCurrentUserEmail(data.currentUserEmail);
         } else if (!ignore) {
           setError(data.error || 'Failed to load team members');
         }
@@ -315,12 +321,18 @@ export default function WorkspaceMembersPage() {
                     </td>
                     <td className="py-4 px-4 sm:px-6 text-right">
                       {currentRole === 'ADMIN' ? (
-                        <button
-                          onClick={() => handleRemoveMember(member.membershipId, member.email)}
-                          className="px-2.5 py-1 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-md transition-all font-semibold"
-                        >
-                          Remove
-                        </button>
+                        (member.userId && member.userId === currentUserId) || member.email === currentUserEmail ? (
+                          <span className="text-slate-400 dark:text-slate-500 text-xs italic font-medium px-2.5 py-1">
+                            Current User
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleRemoveMember(member.membershipId, member.email)}
+                            className="px-2.5 py-1 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-md transition-all font-semibold"
+                          >
+                            Remove
+                          </button>
+                        )
                       ) : (
                         <span className="text-slate-400 italic">Protected</span>
                       )}

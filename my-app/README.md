@@ -1,106 +1,155 @@
-# Project LOOP — AI Customer Feedback Platform
+# AI Customer Feedback Intelligence Platform (Project LOOP)
 
-> An application that collects multi-channel customer feedback, uses AI to classify and group it into topics, detects complaint surges, answers questions grounded in actual customer reviews, and creates executive summary reports with PDF export.
-
----
-
-## Features
-
-### Core Application Architecture
-- **Multi-Tenant Workspaces & Data Isolation:** All database queries are filtered by the active user's workspace ID so different workspaces never share data.
-- **Role-Based Access Control (RBAC):**
-  - `ADMIN`: Full access (Invite team members, change roles, delete feedback, create reports).
-  - `ANALYST`: Ingest feedback, upload CSV files, triage reviews, create reports.
-  - `VIEWER`: Read-only access across the workspace.
-  - *Server-side API role enforcement (returns 403 Forbidden on unauthorized actions).*
-- **Feedback Collection & CSV Importer:** Single feedback entry, simulated live channels (Support tickets, App Store, Discord, Twitter, Surveys), and a CSV importer with column auto-matching.
-- **Feedback Inbox & Workflow:** Server-side pagination, search, 5 filters (source, sentiment, category, status, date range), and status progression (`NEW` -> `REVIEWED` -> `ACTIONED`).
-- **Dashboard:** Interactive metrics cards, customer happiness score, category distribution, and time-series charts.
-
-### AI Intelligence Suite
-- **Sentiment & Urgency Scoring:** Automatic sentiment scoring (-1.0 to +1.0), category tagging, urgency ranking, and one-sentence summaries stored on each record.
-- **Topic Clustering & Spike Alerts (`/trends`):** Automatically groups feedback into topics, tracks volume over time, flags complaint surges (>35% spike alerts), and provides drill-down side drawers.
-- **Ask LOOP Q&A Assistant (`/ask`):** Conversational assistant with semantic retrieval that answers questions based on real feedback and cites exact customer quotes.
-- **Executive Reports (`/reports`):** Period synthesis of executive summaries, sentiment shift deltas, top topics, customer quotes, recommended actions, and Print/PDF export.
+An application that collects customer feedback from different channels (such as support tickets, email, Discord, and Twitter), groups reviews into topics, flags sudden complaint spikes, answers questions using real customer reviews, and creates executive reports.
 
 ---
 
-## AI Engine & API Key Options
-
-Project LOOP includes a multi-provider AI engine with automatic zero-key fallback:
-
-1. **Built-in Engine (Default / Zero Key Needed):**  
-   Works out of the box offline without requiring any external API keys.
-2. **Groq Cloud API (Free Tier Recommended):**  
-   Free ultra-fast inference with Llama 3.3 via [Groq Cloud Console](https://console.groq.com/).  
-   Add `GROQ_API_KEY="your_key_here"` in `.env`.
-3. **Google Gemini API (Free Tier):**  
-   Free 15 requests per minute via [Google AI Studio](https://aistudio.google.com/).  
-   Add `GEMINI_API_KEY="your_key_here"` in `.env`.
+## Live Demo & Repository
+- Deployed Application: https://ai-customer-feedback-platform.vercel.app
+- GitHub Repository: https://github.com/RahulBhandari0/AI-Customer-Feedback-Intelligence-Platform
 
 ---
 
-## Demo Login Credentials
+## Architecture Overview
 
-Use these pre-seeded credentials to test multi-tenancy and RBAC roles:
+```
+                      +-----------------------------+
+                      |    User Browser / Client    |
+                      |  (Next.js App Router & UI)  |
+                      +--------------+--------------+
+                                     |
+                                     v
+                      +-----------------------------+
+                      |     Clerk Authentication    |
+                      |   (Login, User ID & Role)   |
+                      +--------------+--------------+
+                                     |
+                                     v
+                      +-----------------------------+
+                      |    Next.js API & Services   |
+                      |   - Feedback Ingestion      |
+                      |   - Theme Clustering        |
+                      |   - Semantic Search         |
+                      |   - Report Generation       |
+                      +-------+-------------+-------+
+                              |             |
+              +---------------+             +---------------+
+              |                                             |
+              v                                             v
++---------------------------+                 +---------------------------+
+|    Grok AI API (xAI)      |                 |   PostgreSQL Database     |
+| - Feedback sentiment      |                 |   (via Prisma ORM)        |
+| - Topic categorization    |                 | - Workspaces & Members    |
+| - Ask LOOP Q&A answers    |                 | - Customer Feedback       |
+| - Executive VoC reports   |                 | - Themes & Vector Embeds  |
++---------------------------+                 +---------------------------+
+```
 
-| Workspace | Role | Email | Permissions |
+### How the system works:
+1. Users log in securely through Clerk.
+2. Each user is connected only to their active workspace. Workspace A cannot view or modify Workspace B data.
+3. When customer feedback is submitted (via form or CSV upload):
+   - Grok analyzes the sentiment (Positive, Neutral, Negative), urgency level, and category.
+   - The feedback is assigned to a theme and given a vector embedding for semantic search.
+4. When users ask questions in "Ask LOOP", the system finds relevant customer feedback and Grok writes an answer citing exact customer quotes.
+5. Executive reports aggregate real statistics and quotes from the selected timeframe without making up ungrounded claims.
+
+---
+
+## Key Features
+
+1. Feedback Inbox:
+   - View all customer reviews in one place.
+   - Filter by Theme, Category, Sentiment, Channel, Status, or Date range.
+   - Update triage status from New to Reviewed to Actioned.
+
+2. Topic Trends and Surge Detection (/trends):
+   - Automatically groups feedback into topics (like Performance, Billing, Bugs, UI/UX).
+   - Shows volume trends over time and flags topics with more than 35% growth as surges.
+   - Click any topic to open a side drawer showing all related feedback.
+
+3. Ask LOOP (/ask):
+   - Ask questions about your customers in everyday English.
+   - Searches real feedback records using semantic vector search.
+   - Answers are generated by Grok and cite verbatim customer quotes.
+
+4. Executive Reports (/reports):
+   - Generates Voice of the Customer reports for 7-day, 30-day, or 90-day periods.
+   - Shows sentiment breakdown, top topics, customer quotes, and recommended next steps.
+   - Export or print directly to PDF.
+
+5. Analytics Dashboard (/dashboard):
+   - Live charts showing feedback volume over time, customer happiness percentage, and category distribution.
+   - Urgent issues queue for high-priority bugs and billing problems.
+
+6. Team and Roles (/workspace/members):
+   - Manage workspace members and permissions.
+   - Admin: Full access (invite teammates, delete feedback, generate reports).
+   - Analyst: Can add feedback, triage reviews, and generate reports.
+   - Viewer: Read-only access.
+   - Admins cannot remove their own account to prevent accidental lockout.
+
+---
+
+## Grok AI Setup (Primary Provider)
+
+This platform uses xAI Grok (grok-2-latest) as its main AI model.
+
+### Setup steps:
+1. Get an API key from the xAI console at https://console.x.ai/
+2. Open your .env file inside my-app/ and add your key:
+   ```env
+   GROK_API_KEY="xai-your-api-key-here"
+   ```
+3. Restart your development server. All feedback classification, Ask LOOP Q&A, and reports will now use Grok.
+
+Note: If no API key is provided, the platform automatically uses its built-in data-driven engine so all features continue to work offline.
+
+---
+
+## Demo Login Accounts
+
+You can test different roles and data isolation using these pre-configured accounts:
+
+| Workspace | Role | Email | Capabilities |
 | :--- | :--- | :--- | :--- |
-| **Acme Corp** | `ADMIN` | `admin@acme.com` | Full workspace admin, invite members, triage & delete |
-| **Acme Corp** | `ANALYST` | `analyst@acme.com` | Ingest feedback, CSV upload, triage, generate reports |
-| **Acme Corp** | `VIEWER` | `viewer@acme.com` | Read-only access to Inbox, Trends, Ask LOOP, and Reports |
-| **Beta Labs** | `ADMIN` | `beta-admin@betalabs.internal` | Demonstrates complete tenant data isolation |
+| Acme Corp | Admin | admin@acme.com | Full admin access: invite team, assign roles, delete feedback, make reports |
+| Acme Corp | Analyst | analyst@acme.com | Can add feedback, upload CSV, change review status, make reports |
+| Acme Corp | Viewer | viewer@acme.com | Read-only access across all pages |
+| Beta Labs | Admin | beta-admin@betalabs.internal | Separate workspace: proves that Beta Labs cannot see Acme Corp data |
+
+When a brand new user signs up, the system automatically creates a new personal workspace for them and gives them Admin access.
 
 ---
 
-## Tech Stack
-
-| Layer | Technology | Purpose |
-| :--- | :--- | :--- |
-| **Framework** | Next.js (App Router) + TypeScript | Full-stack server components & route handlers |
-| **Styling** | Tailwind CSS + Light/Dark Mode | Design system with responsive layout |
-| **Database** | PostgreSQL (Neon / Supabase) | Relational data persistence |
-| **ORM** | Prisma ORM | Type-safe schema migrations & relations |
-| **Authentication** | Clerk Auth / RBAC Session Guards | Secure identity & role management |
-| **AI Layer** | Multi-Provider Engine (Groq, Gemini & Built-in Engine) | Classification, Q&A, and summary reports |
-| **Validation** | Zod & TypeScript Strict Types | Runtime API validation |
-
----
-
-## Quickstart & Local Setup
+## Local Setup
 
 ### 1. Prerequisites
-- Node.js 18+ LTS
-- PostgreSQL database (e.g. Neon.tech or Supabase)
+- Node.js (version 18 or higher)
+- PostgreSQL database (such as Neon.tech or Supabase)
 
 ### 2. Installation
 ```bash
-# Clone the repository
 git clone https://github.com/RahulBhandari0/AI-Customer-Feedback-Intelligence-Platform.git
 cd AI-Customer-Feedback-Intelligence-Platform/my-app
-
-# Install dependencies
 npm install
 ```
 
-### 3. Environment Variables
-Create a `.env` file in `my-app/` with:
+### 3. Environment Configuration
+Create a `.env` file inside `my-app/` with the following variables:
 ```env
-DATABASE_URL="postgresql://neondb_owner:YOUR_PASSWORD@YOUR_HOST.aws.neon.tech/neondb?sslmode=require"
+DATABASE_URL="postgresql://username:password@host/database?sslmode=require"
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_..."
 CLERK_SECRET_KEY="sk_test_..."
-
-# Optional: Add any free AI key for live LLM generation
-GROQ_API_KEY="gsk_..."
-# GEMINI_API_KEY="AIzaSy..."
+GROK_API_KEY="xai-..."
 ```
 
-### 4. Database Setup & Seeding
+### 4. Database Migration and Sample Data
 ```bash
-# Run the database migration
-node scripts/migrate.js
+# Push schema to database
+npm run db:push
 
-# Seed the database with 130+ multi-channel items, themes, embeddings & reports
+# Populate sample data (creates demo workspaces, users, 125+ customer reviews, themes, and reports)
 npm run seed
 ```
 
@@ -108,18 +157,19 @@ npm run seed
 ```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000) or [http://localhost:3001](http://localhost:3001) in your browser.
+Open http://localhost:3000 in your browser.
 
 ---
 
-## Application Routes
+## Testing
 
-- `/` &mdash; Landing page and product overview
-- `/feedback` &mdash; Feedback Inbox (Search, Filters, Status Workflow, Detail Drawer)
-- `/feedback/new` &mdash; Single feedback submission form with real-time preview
-- `/feedback/import` &mdash; CSV bulk importer with auto-column matching
-- `/trends` &mdash; Topic clustering, volume over time, spike alerts & drill-down drawer
-- `/ask` &mdash; Ask LOOP assistant with customer quote citations
-- `/reports` &mdash; Executive summary report generator & PDF export
-- `/dashboard` &mdash; Analytics dashboard (KPI cards, charts, and customer happiness)
-- `/workspace/members` &mdash; Team workspace management & role settings
+```bash
+# Run the automated RBAC and tenant isolation test suite (23 tests)
+npm test
+
+# Run ESLint check (0 errors, 0 warnings)
+npm run lint
+
+# Run TypeScript type check (0 errors)
+npx tsc --noEmit
+```
