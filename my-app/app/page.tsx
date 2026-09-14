@@ -1,9 +1,12 @@
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 
 export default async function Home() {
   const { userId } = await auth();
-  const isSignedIn = !!userId;
+  if (userId) {
+    redirect("/dashboard");
+  }
 
   return (
     <main className="min-h-[calc(100vh-4rem)] bg-slate-950 text-white flex flex-col justify-between">
@@ -22,43 +25,20 @@ export default async function Home() {
           Loop collects feedback from every channel, analyzes sentiment with AI, and surfaces critical product insights so nothing important gets lost.
         </p>
 
-        {isSignedIn ? (
-          <div className="flex flex-wrap items-center justify-center gap-4">
-            <Link
-              href="/dashboard"
-              className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3.5 rounded-xl font-semibold transition shadow-lg shadow-blue-600/30 hover:scale-105"
-            >
-              Open Dashboard &rarr;
-            </Link>
-            <Link
-              href="/feedback"
-              className="bg-slate-900 border border-slate-800 hover:bg-slate-800 text-white px-6 py-3.5 rounded-xl font-semibold transition hover:scale-105"
-            >
-              Feedback Inbox
-            </Link>
-            <Link
-              href="/trends"
-              className="bg-slate-900 border border-slate-800 hover:bg-slate-800 text-white px-6 py-3.5 rounded-xl font-semibold transition hover:scale-105"
-            >
-              AI Trends
-            </Link>
-          </div>
-        ) : (
-          <div className="flex flex-wrap items-center justify-center gap-4">
-            <Link
-              href="/sign-up"
-              className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3.5 rounded-xl font-semibold transition shadow-lg shadow-blue-600/30 hover:scale-105"
-            >
-              Get started free &rarr;
-            </Link>
-            <Link
-              href="/sign-in"
-              className="bg-slate-900 border border-slate-800 hover:bg-slate-800 text-white px-6 py-3.5 rounded-xl font-semibold transition hover:scale-105"
-            >
-              Sign in
-            </Link>
-          </div>
-        )}
+        <div className="flex flex-wrap items-center justify-center gap-4">
+          <Link
+            href="/sign-up"
+            className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3.5 rounded-xl font-semibold transition shadow-lg shadow-blue-600/30 hover:scale-105"
+          >
+            Get started free &rarr;
+          </Link>
+          <Link
+            href="/sign-in"
+            className="bg-slate-900 border border-slate-800 hover:bg-slate-800 text-white px-6 py-3.5 rounded-xl font-semibold transition hover:scale-105"
+          >
+            Sign in
+          </Link>
+        </div>
       </section>
 
       {/* Feature Grid */}
