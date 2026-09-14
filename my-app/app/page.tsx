@@ -9,11 +9,11 @@ export default function Home() {
           <span>❖</span> Loop
         </div>
         <div className="flex items-center gap-4">
-          <Link href="/login" className="text-sm font-medium text-slate-600 hover:text-slate-900">
+          <Link href="/sign-in" className="text-sm font-medium text-slate-600 hover:text-slate-900">
             Sign in
           </Link>
           <Link
-            href="/signup"
+            href="/sign-up"
             className="bg-sky-500 hover:bg-sky-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
           >
             Get started free →
@@ -32,13 +32,13 @@ export default function Home() {
         </p>
         <div className="flex justify-center gap-4">
           <Link
-            href="/signup"
+            href="/sign-up"
             className="bg-sky-500 hover:bg-sky-600 text-white px-6 py-3 rounded-lg font-medium transition"
           >
             Get started free →
           </Link>
           <Link
-            href="/login"
+            href="/sign-in"
             className="border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 px-6 py-3 rounded-lg font-medium transition"
           >
             Sign in
