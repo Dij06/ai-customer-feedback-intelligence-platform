@@ -5,7 +5,7 @@ An application that collects customer feedback from different channels (such as 
 ---
 
 ## Live Demo & Repository
-- Deployed Application: https://ai-customer-feedback-intelligence-p-ebon.vercel.app/
+- Deployed Application:  https://ai-customer-feedback-intelligence-platform-dij2.vercel.app
 - GitHub Repository: https://github.com/RahulBhandari0/AI-Customer-Feedback-Intelligence-Platform
 
 ---
