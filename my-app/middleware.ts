@@ -1,10 +1,13 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
+// In routes ko public rakhein taaki middleware loop na bane
 const isPublicRoute = createRouteMatcher([
-  '/',
-  '/sign-in(.*)',
-  '/sign-up(.*)',
-  '/api/webhook(.*)'
+  "/",
+  "/login(.*)",
+  "/signup(.*)",
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  "/api/public(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
@@ -15,7 +18,9 @@ export default clerkMiddleware(async (auth, req) => {
 
 export const config = {
   matcher: [
-    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|json|js|png|jpg|jpeg|webp|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
-    '/(api|trpc)(.*)',
+    // Next.js internals aur static files ko skip karein
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|json|webmanifest|fontawesome|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    // API routes hamesha run hon
+    "/(api|trpc)(.*)",
   ],
 };
