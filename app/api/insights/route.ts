@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import Groq from "groq-sdk";
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+function getGroqClient() {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) return null;
+  return new Groq({ apiKey });
+}
 
 // Active Groq models in 2026
 const MODELS = [
@@ -13,6 +17,10 @@ const MODELS = [
 ].filter(Boolean) as string[];
 
 async function getGroqCompletion(prompt: string) {
+  const groq = getGroqClient();
+  if (!groq) {
+    throw new Error("GROQ_API_KEY environment variable is not configured");
+  }
   let lastErr = null;
 
   for (const model of MODELS) {
