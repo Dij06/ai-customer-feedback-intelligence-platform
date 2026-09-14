@@ -9,7 +9,7 @@ import Analytics from "@/components/dashboard/Analytics";
 import AiInsightsCard from "@/components/dashboard/AilnsightsCard";
 import AskLoopChat from "@/components/dashboard/AskLoopChat";
 import VocReportCard from "@/components/dashboard/VocReportCard";
-import ExportPdfButton from "@/components/dashboard/ExportPdfButton"; // Day 17 Import
+import ExportPdfButton from "@/components/dashboard/ExportPdfButton";
 
 export default function DashboardPage() {
   const [workspaces, setWorkspaces] = useState<any[]>([]);
@@ -54,7 +54,7 @@ export default function DashboardPage() {
         <Analytics workspaceId={currentWorkspace?.id} />
       </div>
 
-      {/* Day 16: Voice of Customer Executive Report */}
+      {/* Voice of Customer Executive Report */}
       <div className="w-full">
         <VocReportCard workspaceId={currentWorkspace?.id} />
       </div>
@@ -64,7 +64,7 @@ export default function DashboardPage() {
         <AiInsightsCard workspaceId={currentWorkspace?.id} />
       </div>
 
-      {/* Ask Loop AI Assistant Section (Print time par form controls auto hide ho jayenge) */}
+      {/* Ask Loop AI Assistant Section */}
       <div className="w-full">
         <AskLoopChat workspaceId={currentWorkspace?.id} />
       </div>
