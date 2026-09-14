@@ -32,28 +32,28 @@ async function main() {
       content: "The dashboard loading time takes more than 10 seconds. Fix this issue immediately!",
       sentiment: "NEGATIVE",
       category: "Performance",
-      urgency: true,
+      urgency: "High",
       source: "IN-APP",
     },
     {
       content: "Love the new CSV export feature! It saved our team hours of manual export work.",
       sentiment: "POSITIVE",
       category: "Feature Request",
-      urgency: false,
+      urgency: "Low",
       source: "CSV",
     },
     {
       content: "Billing page threw a 500 internal server error when upgrading to the Pro plan.",
       sentiment: "NEGATIVE",
       category: "Bug",
-      urgency: true,
+      urgency: "High",
       source: "EMAIL",
     },
     {
       content: "Please add dark mode support across all analytics pages.",
       sentiment: "NEUTRAL",
       category: "UI/UX",
-      urgency: false,
+      urgency: "Low",
       source: "IN-APP",
     },
   ];
@@ -62,7 +62,6 @@ async function main() {
     await prisma.feedback.create({
       data: {
         content: item.content,
-        text: item.content,
         sentiment: item.sentiment,
         category: item.category,
         urgency: item.urgency,

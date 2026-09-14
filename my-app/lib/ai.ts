@@ -65,7 +65,7 @@ export function analyzeFeedbackWithAI(
   return fallbackAnalyzeFeedback(content, existingThemes);
 }
 
-// Multi-provider LLM analyzer: checks Grok (#1 priority), Anthropic, Groq, Gemini, then offline rules
+// Multi-provider LLM analyzer: checks Grok (#1 priority), Anthropic, Groq, then offline rules
 export async function analyzeFeedbackWithLLM(
   content: string,
   existingThemes: string[] = []
@@ -73,7 +73,6 @@ export async function analyzeFeedbackWithLLM(
   const grokKey = process.env.GROK_API_KEY || process.env.XAI_API_KEY;
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   const groqKey = process.env.GROQ_API_KEY;
-  const geminiKey = process.env.GEMINI_API_KEY;
 
   // 1. Grok (xAI) - Priority #1
   if (grokKey) {
@@ -221,50 +220,7 @@ export async function analyzeFeedbackWithLLM(
     }
   }
 
-  // 4. Google Gemini 1.5 Flash
-  if (geminiKey) {
-    try {
-      const prompt = `Analyze this customer feedback and return JSON with sentiment, sentimentScore (-1.0 to 1.0), category, urgency, summary, tags, and suggestedThemes: "${content}"`;
-
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { responseMimeType: 'application/json' },
-          }),
-        }
-      );
-      if (res.ok) {
-        const data = await res.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) {
-          const cleanJson = text.replace(/```json|```/g, '').trim();
-          const parsed = JSON.parse(cleanJson);
-          const validated = AIClassificationOutputSchema.safeParse(parsed);
-          if (validated.success) {
-            const v = validated.data;
-            return {
-              sentiment: v.sentiment,
-              sentimentScore: v.sentimentScore,
-              category: v.category,
-              urgency: v.urgency,
-              summary: v.summary || content.slice(0, 80),
-              tags: v.tags.length > 0 ? v.tags : ['feedback'],
-              suggestedThemes: v.suggestedThemes || [],
-              provider: 'Gemini 1.5 Flash',
-            };
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('Gemini call failed, falling back:', err);
-    }
-  }
-
-  // 5. Offline rule-based fallback (zero API costs)
+  // 4. Offline rule-based fallback (zero API costs)
   return fallbackAnalyzeFeedback(content, existingThemes);
 }
 
@@ -412,7 +368,6 @@ export async function askLoopGroundedQA(
   const grokKey = process.env.GROK_API_KEY || process.env.XAI_API_KEY;
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   const groqKey = process.env.GROQ_API_KEY;
-  const geminiKey = process.env.GEMINI_API_KEY;
 
   const contextText = relevantItems
     .map((f, i) => `[Quote #${i + 1}] (${f.source}, ${f.sentiment || 'Neutral'}, from ${f.customerName || 'Customer'}): "${f.content}"`)
@@ -567,45 +522,6 @@ Question: "${question}"`;
     }
   }
 
-  if (geminiKey && relevantItems.length > 0) {
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: [{ parts: [{ text: qaPrompt }] }] }),
-        }
-      );
-
-      if (res.ok) {
-        const data = await res.json();
-        const ans = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (ans) {
-          return {
-            answer: ans,
-            confidence: 0.94,
-            citedItems: relevantItems.map((f) => ({
-              id: f.id,
-              content: f.content,
-              source: f.source,
-              sentiment: f.sentiment || 'Neutral',
-              customerName: f.customerName,
-              createdAt: f.createdAt,
-            })),
-            suggestedFollowUps: [
-              'What should we fix first based on these reviews?',
-              'Show me the positive feedback on this topic.',
-              'How does this compare to last month?',
-            ],
-            provider: 'Gemini 1.5 Flash',
-          };
-        }
-      }
-    } catch (err) {
-      console.warn('Gemini Q&A failed, falling back:', err);
-    }
-  }
 
   const posCount = relevantItems.filter((i) => i.sentiment === 'Positive').length;
   const negCount = relevantItems.filter((i) => i.sentiment === 'Negative').length;
@@ -665,7 +581,6 @@ export async function generateVoiceOfCustomerReport(
   const grokKey = process.env.GROK_API_KEY || process.env.XAI_API_KEY;
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   const groqKey = process.env.GROQ_API_KEY;
-  const geminiKey = process.env.GEMINI_API_KEY;
 
   // Prepare context data for LLM
   const themeSummary = topThemes.map((t) => `- Theme "${t.name}": ${t.count} mentions (Sentiment: ${t.sentiment})`).join('\n');
@@ -783,37 +698,7 @@ ${quotesContext || 'No feedback entries recorded.'}`;
     }
   }
 
-  // 4. Try Google Gemini
-  if (geminiKey) {
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: reportPrompt }] }],
-            generationConfig: { responseMimeType: 'application/json' },
-          }),
-        }
-      );
-
-      if (res.ok) {
-        const data = await res.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) {
-          const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
-          if (parsed.executiveSummary) {
-            return buildReportResponse(title, period, total, stats, netScore, topThemes, feedbackSample, parsed);
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('Gemini report generation failed, falling back:', err);
-    }
-  }
-
-  // 5. Dynamic Data-Driven Fallback (Purely based on actual input metrics & quotes)
+  // 4. Dynamic Data-Driven Fallback (Purely based on actual input metrics & quotes)
   const topThemeNames = topThemes.map((t) => t.name).join(', ') || 'general user experience';
   const negativeQuotes = feedbackSample.filter((f) => f.sentiment === 'Negative');
   const positiveQuotes = feedbackSample.filter((f) => f.sentiment === 'Positive');

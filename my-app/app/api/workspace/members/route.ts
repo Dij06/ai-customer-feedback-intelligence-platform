@@ -156,11 +156,13 @@ export async function PATCH(req: NextRequest) {
 
     const { membershipId, newRole } = parseResult.data;
 
-    // Explicit tenant isolation check: verify membership belongs to the active workspace
     const existingMember = await prisma.workspaceMember.findFirst({
       where: {
         id: membershipId,
         workspaceId: context.workspaceId,
+      },
+      include: {
+        user: true,
       },
     });
 
@@ -168,6 +170,17 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Member not found in this workspace' },
         { status: 404 }
+      );
+    }
+
+    // Prevent user from accidentally demoting or modifying their own role
+    if (
+      existingMember.userId === context.userId ||
+      (existingMember.user?.email && context.userEmail && existingMember.user.email.toLowerCase() === context.userEmail.toLowerCase())
+    ) {
+      return NextResponse.json(
+        { success: false, error: 'You cannot change your own role to prevent accidental workspace lockout.' },
+        { status: 400 }
       );
     }
 
@@ -211,11 +224,13 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // Explicit tenant isolation check: verify membership belongs to the active workspace
     const existingMember = await prisma.workspaceMember.findFirst({
       where: {
         id: membershipId,
         workspaceId: context.workspaceId,
+      },
+      include: {
+        user: true,
       },
     });
 
@@ -227,9 +242,23 @@ export async function DELETE(req: NextRequest) {
     }
 
     // Prevent Admin from removing their own account from the workspace
-    if (existingMember.userId === context.userId) {
+    if (
+      existingMember.userId === context.userId ||
+      (existingMember.user?.email && context.userEmail && existingMember.user.email.toLowerCase() === context.userEmail.toLowerCase())
+    ) {
       return NextResponse.json(
         { success: false, error: 'You cannot remove your own account from the workspace.' },
+        { status: 400 }
+      );
+    }
+
+    // Prevent deletion of Admin accounts
+    if (existingMember.role === 'ADMIN') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Admin accounts are protected and cannot be deleted.',
+        },
         { status: 400 }
       );
     }

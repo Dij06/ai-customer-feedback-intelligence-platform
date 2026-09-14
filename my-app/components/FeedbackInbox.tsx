@@ -3,20 +3,32 @@
 import { useState, useEffect } from "react";
 import { MessageSquare, Inbox } from "lucide-react";
 
+interface FeedbackItem {
+  id: string;
+  content: string;
+  title?: string;
+  description?: string;
+  sentiment?: string;
+  category?: string;
+  urgency?: string;
+  source?: string;
+}
+
 interface FeedbackInboxProps {
   workspaceId?: string;
 }
 
 export default function FeedbackInbox({ workspaceId }: FeedbackInboxProps) {
-  const [feedbacks, setFeedbacks] = useState<any[]>([]);
+  const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
   const [filter, setFilter] = useState("ALL");
   const [loading, setLoading] = useState(false);
 
   const categories = ["ALL", "POSITIVE", "NEUTRAL", "NEGATIVE"];
 
   useEffect(() => {
+    let ignore = false;
+
     if (!workspaceId || workspaceId === "undefined") {
-      setFeedbacks([]);
       return;
     }
 
@@ -26,16 +38,23 @@ export default function FeedbackInbox({ workspaceId }: FeedbackInboxProps) {
         const res = await fetch(`/api/feedback?workspaceId=${workspaceId}`);
         if (res.ok) {
           const data = await res.json();
-          setFeedbacks(Array.isArray(data) ? data : []);
+          if (!ignore) {
+            setFeedbacks(Array.isArray(data) ? data : []);
+          }
         }
       } catch (err) {
         console.error("Error fetching feedback:", err);
       } finally {
-        setLoading(false);
+        if (!ignore) {
+          setLoading(false);
+        }
       }
     };
 
     fetchFeedbacks();
+    return () => {
+      ignore = true;
+    };
   }, [workspaceId]);
 
   const filteredFeedbacks = feedbacks.filter((item) => {
@@ -94,7 +113,7 @@ export default function FeedbackInbox({ workspaceId }: FeedbackInboxProps) {
               No Feedbacks Found
             </h4>
             <p className="text-xs text-slate-500 max-w-xs mt-1">
-              You haven't added any feedback yet. Add direct feedback or upload a CSV file.
+              You haven&apos;t added any feedback yet. Add direct feedback or upload a CSV file.
             </p>
           </div>
         ) : (

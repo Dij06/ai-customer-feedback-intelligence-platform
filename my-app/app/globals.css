@@ -1,12 +1,13 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @media print {
-  
   button,
   .print\:hidden,
   form,
   input,
-  header {
+  header,
+  aside {
     display: none !important;
   }
 
@@ -19,15 +20,14 @@
     print-color-adjust: exact !important;
   }
 
-  /* Dashboard container adjustment */
   .max-w-7xl {
     max-width: 100% !important;
     padding: 0 !important;
   }
 
-  
   .space-y-6 > * {
     page-break-inside: avoid;
     margin-bottom: 1.5rem !important;
   }
 }
+

@@ -33,11 +33,10 @@ export async function POST(req: Request) {
     const feedback = await prisma.feedback.create({
       data: {
         content: feedbackText,
-        text: feedbackText,
         source: channel.toUpperCase(),
         sentiment: "NEUTRAL",
         category: "Channel Ingestion",
-        urgency: false,
+        urgency: "Low",
         workspaceId: workspaceId,
         userId: systemUser.id,
       },

@@ -23,7 +23,7 @@ export async function GET(req: Request) {
     });
 
     const urgentCount = await prisma.feedback.count({
-      where: { workspaceId, urgency: true },
+      where: { workspaceId, urgency: "High" },
     });
 
     return NextResponse.json({

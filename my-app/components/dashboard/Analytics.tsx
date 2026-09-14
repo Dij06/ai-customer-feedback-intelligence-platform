@@ -41,7 +41,7 @@ export default function Analytics({ workspaceId }: AnalyticsProps) {
           setTotalVolume(feedbacks.length);
 
           let pos = 0, neu = 0, neg = 0;
-          feedbacks.forEach((fb: any) => {
+          feedbacks.forEach((fb: { sentiment?: string }) => {
             const s = (fb.sentiment || "").toUpperCase();
             if (s === "POSITIVE") pos++;
             else if (s === "NEGATIVE") neg++;

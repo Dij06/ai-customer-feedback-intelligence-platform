@@ -1,69 +1,132 @@
-generator client {
-  provider      = "prisma-client-js"
-  binaryTargets = ["native", "rhel-openssl-1.0.x", "rhel-openssl-3.0.x"]
-}
-
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-enum Role{
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
   ADMIN
+  ANALYST
+  VIEWER
+  USER
   MEMBER
 }
 
 model User {
-  id          String     @id @default(cuid())
-  clerkUserId String     @unique
-  email       String     @unique
+  id          String            @id @default(uuid())
+  clerkUserId String?
+  email       String            @unique
   name        String?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  role        Role       @default(MEMBER)
-  workspaceID String?  
-  workspace   Workspace? @relation(fields: [workspaceID], references: [id])
-  
-  memberships WorkspaceMember[]
+  phoneNumber String?
+  department  String?
+  role        String            @default("USER")
   feedbacks   Feedback[]
+  memberships WorkspaceMember[]
+  reports     Report[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @default(now()) @updatedAt
 }
 
 model Workspace {
-  id        String   @id @default(cuid())
+  id        String            @id @default(uuid())
   name      String
-  slug      String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  users     User[]
-
+  slug      String            @unique
   members   WorkspaceMember[]
   feedbacks Feedback[]
+  themes    Theme[]
+  reports   Report[]
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
 }
 
 model WorkspaceMember {
-  id          String    @id @default(cuid())
+  id          String    @id @default(uuid())
+  role        Role      @default(MEMBER)
   userId      String
   workspaceId String
-  role        String    @default("MEMBER")
-  createdAt   DateTime  @default(now())
-
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([userId, workspaceId])
 }
 
-model Feedback {
-  id          String    @id @default(cuid())
-  content     String
-  source      String
-  userId      String
-  workspaceId String?
-  createdAt   DateTime  @default(now())
-  sentiment   String?
-  urgency     Boolean?  @default(false)
-  text        String?
-  category    String?
-  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspace Workspace?  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+model Theme {
+  id            String          @id @default(uuid())
+  name          String
+  description   String?
+  color         String          @default("#3b82f6")
+  workspaceId   String
+  workspace     Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  feedbackThemes FeedbackTheme[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@unique([name, workspaceId])
 }
+
+model FeedbackTheme {
+  id         String   @id @default(uuid())
+  feedbackId String
+  themeId    String
+  confidence Float    @default(1.0)
+  feedback   Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  theme      Theme    @relation(fields: [themeId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([feedbackId, themeId])
+}
+
+model Embedding {
+  id         String   @id @default(uuid())
+  feedbackId String   @unique
+  vector     String   // Serialized float vector or dense embeddings representation
+  feedback   Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+}
+
+model Feedback {
+  id             String          @id @default(cuid())
+  content        String
+  source         String          @default("Web Form")
+  sentiment      String?         // Positive, Neutral, Negative
+  sentimentScore Float?          @default(0.0)
+  category       String?         // Performance, Bug, Feature Request, UI/UX, Billing, Support, General
+  urgency        String?         @default("Medium") // High, Medium, Low
+  status         String?         @default("NEW")    // NEW, REVIEWED, ACTIONED
+  customerName   String?
+  customerEmail  String?
+  summary        String?
+  tags           String[]        @default([])
+  createdAt      DateTime        @default(now())
+  userId         String?
+  workspaceId    String?
+  user           User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace      Workspace?      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  feedbackThemes FeedbackTheme[]
+  embedding      Embedding?
+}
+
+model Report {
+  id          String    @id @default(uuid())
+  title       String
+  periodStart DateTime?
+  periodEnd   DateTime?
+  contentJson String    // JSON containing summary, topThemes, verbatimQuotes, recommendedActions, stats
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  generatedBy String?
+  user        User?     @relation(fields: [generatedBy], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+}
+
+model AnalyticsReport {
+  id          String   @id @default(uuid())
+  title       String
+  summary     String
+  keyInsights String
+  createdAt   DateTime @default(now())
+}
+

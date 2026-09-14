@@ -1,18 +1,16 @@
 "use server";
 
 import { z } from "zod";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/prisma";
 
 // Clean Zod Schema Validation
 export const feedbackSchema = z.object({
   content: z
     .string()
-    .min(10, { message: "Feedback kam se kam 10 characters ka hona chahiye." })
-    .max(1000, { message: "Feedback 1000 characters se zyada nahi ho sakta." }),
+    .min(10, { message: "Feedback must be at least 10 characters long." })
+    .max(1000, { message: "Feedback cannot exceed 1000 characters." }),
   sentiment: z.enum(["POSITIVE", "NEUTRAL", "NEGATIVE"]),
-  source: z.string().min(1, { message: "Source required hai." }),
+  source: z.string().min(1, { message: "Source is required." }),
 });
 
 export type FeedbackFormValues = z.infer<typeof feedbackSchema>;
@@ -29,15 +27,14 @@ export async function submitFeedbackAction(data: FeedbackFormValues) {
     const defaultUser = await prisma.user.findFirst();
 
     if (!defaultWorkspace || !defaultUser) {
-      return { success: false, message: "Workspace ya User database mein nahi mila." };
+      return { success: false, message: "Workspace or User not found in database." };
     }
 
     await prisma.feedback.create({
       data: {
         content: validated.data.content,
-        text: validated.data.content,
         category: "General",
-        urgency: false,
+        urgency: "Low",
         sentiment: validated.data.sentiment,
         source: validated.data.source,
         workspaceId: defaultWorkspace.id,
@@ -45,9 +42,9 @@ export async function submitFeedbackAction(data: FeedbackFormValues) {
       },
     });
 
-    return { success: true, message: "Feedback successfully submit ho gaya!" };
+    return { success: true, message: "Feedback submitted successfully." };
   } catch (error) {
     console.error("Submission error:", error);
-    return { success: false, message: "Database mein save karte waqt error aaya." };
+    return { success: false, message: "An error occurred while saving feedback to database." };
   }
 }

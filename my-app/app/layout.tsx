@@ -1,6 +1,13 @@
-import { ClerkProvider } from '@clerk/nextjs'
-import './globals.css'
-import { Toaster } from 'sonner' // 1. Import Toaster
+import type { Metadata } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
+import { AppShell } from "@/components/AppShell";
+import "./globals.css";
+import { Toaster } from "sonner";
+
+export const metadata: Metadata = {
+  title: "LOOP - AI Customer Feedback Intelligence Platform",
+  description: "Ingest multi-channel customer feedback, analyze sentiment with AI, and track product insights.",
+};
 
 export default function RootLayout({
   children,
@@ -9,13 +16,29 @@ export default function RootLayout({
 }) {
   return (
     <ClerkProvider>
-      <html lang="en">
-        <body>
-          {children}
-          {/* 2. Add Toaster inside body tag */}
+      <html lang="en" className="dark" suppressHydrationWarning>
+        <head>
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                try {
+                  const saved = localStorage.getItem("loop_theme");
+                  if (saved === "light" || (!saved && !window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+                    document.documentElement.classList.remove("dark");
+                  } else {
+                    document.documentElement.classList.add("dark");
+                  }
+                } catch(e) {}
+              `,
+            }}
+          />
+        </head>
+        <body className="bg-slate-50 dark:bg-[#0b0f19] text-slate-900 dark:text-slate-100 min-h-screen flex flex-col antialiased selection:bg-blue-500 selection:text-white transition-colors duration-150">
+          <AppShell>{children}</AppShell>
           <Toaster position="top-right" richColors />
         </body>
       </html>
     </ClerkProvider>
   );
 }
+

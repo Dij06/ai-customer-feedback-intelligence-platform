@@ -133,7 +133,7 @@ export async function POST(req: Request) {
                 content: `Analyze this customer feedback and return ONLY a valid raw JSON object:
 {
   "sentiment": "POSITIVE" | "NEUTRAL" | "NEGATIVE",
-  "urgency": true,
+  "urgency": "High" | "Medium" | "Low",
   "category": "short category name"
 }
 
@@ -149,21 +149,27 @@ Feedback: "${rawText}"`,
 
           sentiment = sentiment || aiData.sentiment || "NEUTRAL";
           category = category || aiData.category || "General";
-          urgency = urgency !== undefined ? Boolean(urgency) : Boolean(aiData.urgency);
+          urgency = urgency || aiData.urgency || "Medium";
         }
       } catch (err) {
         console.error("AI Analysis warning during feedback creation:", err);
       }
     }
 
+    const mappedUrgency =
+      typeof urgency === "string" && ["High", "Medium", "Low"].includes(urgency)
+        ? urgency
+        : urgency
+        ? "High"
+        : "Medium";
+
     const newFeedback = await prisma.feedback.create({
       data: {
         content: rawText,
-        text: rawText,
         source: bodySource || "IN_APP",
         sentiment: sentiment || "NEUTRAL",
         category: category || "General",
-        urgency: urgency !== undefined ? Boolean(urgency) : false,
+        urgency: mappedUrgency,
         workspaceId: dbWorkspace ? dbWorkspace.id : null,
         userId: dbUser.id,
       },

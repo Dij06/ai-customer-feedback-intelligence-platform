@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useUser } from '@clerk/nextjs';
 
 interface Member {
   membershipId: string;
@@ -11,6 +12,9 @@ interface Member {
 }
 
 export default function WorkspaceMembersPage() {
+  const { user: clerkUser } = useUser();
+  const loggedInEmail = clerkUser?.primaryEmailAddress?.emailAddress?.toLowerCase().trim();
+
   const [members, setMembers] = useState<Member[]>([]);
   const [workspace, setWorkspace] = useState<{ id: string; name: string; slug: string } | null>(null);
   const [currentRole, setCurrentRole] = useState<'ADMIN' | 'ANALYST' | 'VIEWER'>('ADMIN');
@@ -19,6 +23,17 @@ export default function WorkspaceMembersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  const isCurrentUser = useCallback(
+    (member: Member) => {
+      const memberEmail = member.email?.toLowerCase().trim();
+      if (loggedInEmail && memberEmail === loggedInEmail) return true;
+      if (currentUserEmail && memberEmail === currentUserEmail.toLowerCase().trim()) return true;
+      if (currentUserId && member.userId === currentUserId) return true;
+      return false;
+    },
+    [loggedInEmail, currentUserEmail, currentUserId]
+  );
 
   // Invite modal state
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -105,7 +120,12 @@ export default function WorkspaceMembersPage() {
     }
   };
 
-  const handleRemoveMember = async (membershipId: string, email: string) => {
+  const handleRemoveMember = async (membershipId: string, email: string, role?: string) => {
+    if (role === 'ADMIN') {
+      setError(`Admin accounts cannot be removed directly. Please demote ${email} to an Analyst or Viewer role before removing.`);
+      return;
+    }
+
     if (!confirm(`Are you sure you want to remove ${email} from this workspace?`)) return;
     setError('');
     setSuccessMsg('');
@@ -289,56 +309,63 @@ export default function WorkspaceMembersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                {members.map((member) => (
-                  <tr key={member.membershipId} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/30 transition-colors">
-                    <td className="py-4 px-4 sm:px-6 font-semibold text-slate-900 dark:text-white">
-                      {member.name}
-                    </td>
-                    <td className="py-4 px-4 sm:px-6 text-slate-600 dark:text-slate-300 font-mono">
-                      {member.email}
-                    </td>
-                    <td className="py-4 px-4 sm:px-6">
-                      {currentRole === 'ADMIN' ? (
-                        <select
-                          value={member.role}
-                          onChange={(e) =>
-                            handleRoleChange(
-                              member.membershipId,
-                              e.target.value as 'ADMIN' | 'ANALYST' | 'VIEWER'
-                            )
-                          }
-                          className="px-2.5 py-1 rounded-md bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500"
-                        >
-                          <option value="ADMIN">ADMIN</option>
-                          <option value="ANALYST">ANALYST</option>
-                          <option value="VIEWER">VIEWER</option>
-                        </select>
-                      ) : (
-                        <span className={`px-2.5 py-1 rounded-md border text-xs font-semibold ${getRoleBadge(member.role)}`}>
-                          {member.role}
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-4 px-4 sm:px-6 text-right">
-                      {currentRole === 'ADMIN' ? (
-                        (member.userId && member.userId === currentUserId) || member.email === currentUserEmail ? (
+                {members.map((member) => {
+                  const isSelf = isCurrentUser(member);
+                  const isAdmin = member.role === 'ADMIN';
+
+                  return (
+                    <tr key={member.membershipId} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/30 transition-colors">
+                      <td className="py-4 px-4 sm:px-6 font-semibold text-slate-900 dark:text-white">
+                        {member.name}
+                      </td>
+                      <td className="py-4 px-4 sm:px-6 text-slate-600 dark:text-slate-300 font-mono">
+                        {member.email}
+                      </td>
+                      <td className="py-4 px-4 sm:px-6">
+                        {currentRole === 'ADMIN' && !isSelf ? (
+                          <select
+                            value={member.role}
+                            onChange={(e) =>
+                              handleRoleChange(
+                                member.membershipId,
+                                e.target.value as 'ADMIN' | 'ANALYST' | 'VIEWER'
+                              )
+                            }
+                            className="px-2.5 py-1 rounded-md bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500"
+                          >
+                            <option value="ADMIN">ADMIN</option>
+                            <option value="ANALYST">ANALYST</option>
+                            <option value="VIEWER">VIEWER</option>
+                          </select>
+                        ) : (
+                          <span className={`px-2.5 py-1 rounded-md border text-xs font-semibold ${getRoleBadge(member.role)}`}>
+                            {member.role}{isSelf ? ' (You)' : ''}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-4 px-4 sm:px-6 text-right">
+                        {isSelf ? (
                           <span className="text-slate-400 dark:text-slate-500 text-xs italic font-medium px-2.5 py-1">
                             Current User
                           </span>
-                        ) : (
+                        ) : isAdmin ? (
+                          <span className="inline-flex items-center text-[11px] font-semibold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60 px-2.5 py-1 rounded-md">
+                            Admin (Protected)
+                          </span>
+                        ) : currentRole === 'ADMIN' ? (
                           <button
-                            onClick={() => handleRemoveMember(member.membershipId, member.email)}
-                            className="px-2.5 py-1 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-md transition-all font-semibold"
+                            onClick={() => handleRemoveMember(member.membershipId, member.email, member.role)}
+                            className="px-2.5 py-1 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-md transition-all font-semibold cursor-pointer"
                           >
                             Remove
                           </button>
-                        )
-                      ) : (
-                        <span className="text-slate-400 italic">Protected</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                        ) : (
+                          <span className="text-slate-400 italic">Protected</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

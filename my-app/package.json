@@ -1,22 +1,29 @@
 {
-  "name": "my-app",
+  "name": "loop-customer-intelligence",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint app components lib",
+    "typecheck": "tsc --noEmit",
+    "test": "ts-node scripts/test-rbac-tenancy.ts",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio",
+    "seed": "prisma db seed"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.123.0",
     "@clerk/nextjs": "^7.8.2",
     "@hookform/resolvers": "^5.9.1",
     "@prisma/client": "5.22.0",
+    "dotenv": "^16.4.7",
     "groq-sdk": "^1.6.0",
     "lucide-react": "^1.34.0",
     "next": "16.3.2",
     "papaparse": "^5.7.0",
+    "pg": "^8.13.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-hook-form": "^7.86.0",
@@ -28,17 +35,17 @@
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/papaparse": "^5.5.2",
+    "@types/pg": "^8.11.10",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.2",
-    "graphmatch": "^1.1.1",
     "prisma": "5.22.0",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
     "typescript": "^5"
   },
   "prisma": {
-    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+    "seed": "ts-node prisma/seed.ts"
   }
 }

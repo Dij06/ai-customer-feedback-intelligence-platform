@@ -67,7 +67,7 @@ export const MemberRoleUpdateSchema = z.object({
 
 export type MemberRoleUpdateInput = z.infer<typeof MemberRoleUpdateSchema>;
 
-// Validates and sanitizes raw JSON returned by AI providers (Grok, Claude, Groq, Gemini)
+// Validates and sanitizes raw JSON returned by AI providers (Grok, Claude, Groq)
 export const AIClassificationOutputSchema = z.object({
   sentiment: z.enum(['Positive', 'Neutral', 'Negative']).catch('Neutral'),
   sentimentScore: z.number().min(-1.0).max(1.0).catch(0.0),

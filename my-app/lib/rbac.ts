@@ -78,9 +78,25 @@ export async function getWorkspaceContext(..._args: unknown[]): Promise<Workspac
 
     if (member && member.workspace) {
       workspace = member.workspace;
-      if (member.role === 'ADMIN') resolvedRole = 'ADMIN';
-      else if (member.role === 'ANALYST') resolvedRole = 'ANALYST';
-      else resolvedRole = 'VIEWER';
+      if (member.role === 'ADMIN') {
+        resolvedRole = 'ADMIN';
+      } else {
+        // Safety guard: If a workspace has 0 Admins, auto-promote this member to restore governance
+        const adminCount = await prisma.workspaceMember.count({
+          where: { workspaceId: workspace.id, role: 'ADMIN' },
+        });
+        if (adminCount === 0) {
+          await prisma.workspaceMember.update({
+            where: { id: member.id },
+            data: { role: 'ADMIN' },
+          });
+          resolvedRole = 'ADMIN';
+        } else if (member.role === 'ANALYST') {
+          resolvedRole = 'ANALYST';
+        } else {
+          resolvedRole = 'VIEWER';
+        }
+      }
     } else {
       // 3. New user signup flow: create a dedicated workspace for this user and make them ADMIN
       const baseName = user.name || displayName || primaryEmail.split('@')[0] || 'My Team';

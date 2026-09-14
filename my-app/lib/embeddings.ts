@@ -41,38 +41,8 @@ function hashString(str: string): number {
   return Math.abs(hash);
 }
 
-// Generates a normalized dense vector embedding for any text string
+// Generates a normalized dense vector embedding for any text string (Local, zero-latency, deterministic)
 export async function generateEmbedding(text: string): Promise<number[]> {
-  const geminiKey = process.env.GEMINI_API_KEY;
-
-  // 1. Try Gemini text-embedding-004 if API key is provided
-  if (geminiKey && text.trim().length > 0) {
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${geminiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: 'models/text-embedding-004',
-            content: { parts: [{ text: text.slice(0, 2048) }] },
-          }),
-        }
-      );
-
-      if (res.ok) {
-        const data = await res.json();
-        const values = data.embedding?.values;
-        if (Array.isArray(values) && values.length > 0) {
-          return normalizeVector(values);
-        }
-      }
-    } catch (err) {
-      console.warn('Gemini embedding API call failed, falling back to local dense vectorizer:', err);
-    }
-  }
-
-  // 2. High-Dimensional Semantic Dense Vectorizer (Local, zero-latency, deterministic)
   return generateLocalSemanticEmbedding(text);
 }
 
