@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React from "react";
 import { usePathname } from "next/navigation";
@@ -22,13 +22,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen w-full">
+    <div className="flex flex-col lg:flex-row min-h-screen w-full">
       {/* Vertical Sidebar Navigation */}
       <Sidebar />
 
       {/* Main Scrollable Content Area */}
-      <main className="flex-1 lg:pl-72 flex flex-col min-h-screen overflow-x-hidden">
-        <div className="flex-1 w-full">{children}</div>
+      <main className="flex-1 lg:pl-72 flex flex-col min-h-screen min-w-0 w-full overflow-x-hidden">
+        <div className="flex-1 w-full min-w-0">{children}</div>
       </main>
     </div>
   );

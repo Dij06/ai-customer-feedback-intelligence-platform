@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { Sparkles } from 'lucide-react';
 
 interface CitationItem {
   id: string;
@@ -106,36 +107,34 @@ export default function AskLoopPage() {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-6 flex flex-col h-[calc(100vh-5rem)]">
         
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200/60 dark:border-slate-800/60 pb-5 sm:pb-6">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
-                Customer Feedback Assistant
-              </span>
-              <span className="text-2xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 font-semibold border border-emerald-200 dark:border-emerald-800">
-                Backed by Real Feedback
-              </span>
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-purple-500/10 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 shrink-0">
+                <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" />
+              </div>
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+                Ask LOOP AI
+              </h1>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white mt-1">
-              Ask LOOP
-            </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
               Ask questions in plain English and get honest answers backed by real customer reviews.
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap shrink-0">
             <Link
               href="/trends"
-              className="px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+              className="inline-flex items-center gap-1.5 h-9 px-3.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-2xs"
             >
               &larr; View Trends
             </Link>
             <Link
               href="/reports"
-              className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-all shadow-xs"
+              className="inline-flex items-center gap-1.5 h-9 px-3.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors shadow-xs"
             >
-              Weekly Reports &rarr;
+              <span>Weekly Reports</span>
+              <span>&rarr;</span>
             </Link>
           </div>
         </div>
@@ -243,7 +242,7 @@ export default function AskLoopPage() {
         </div>
 
         {/* Input form */}
-        <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
+        <div className="pt-2">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -256,19 +255,16 @@ export default function AskLoopPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Ask a question about customer feedback (e.g. 'What are top complaints this month?')..."
-              className="flex-1 px-4 py-3 text-sm rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-xs"
+              className="flex-1 px-4 py-3 text-sm rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
             />
             <button
               type="submit"
               disabled={loading || !query.trim()}
-              className="px-5 py-3 text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-xl transition-all shadow-md shadow-blue-500/20"
+              className="px-5 py-3 text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-500 disabled:opacity-40 rounded-xl transition-all shadow-xs shrink-0"
             >
               {loading ? 'Analyzing...' : 'Ask AI'}
             </button>
           </form>
-          <div className="text-center text-2xs text-slate-400 mt-2">
-            Ask LOOP retrieves real customer records from your PostgreSQL database. Answers are strictly grounded in workspace data.
-          </div>
         </div>
 
       </div>

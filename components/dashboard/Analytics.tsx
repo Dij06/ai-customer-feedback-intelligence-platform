@@ -82,72 +82,72 @@ export default function Analytics({ workspaceId }: AnalyticsProps) {
   ];
 
   return (
-    <div className="bg-[#0B0F19] text-white p-6 rounded-2xl space-y-6 border border-slate-800 shadow-2xl">
+    <div className="bg-[#0B0F19] text-white p-4 sm:p-6 rounded-2xl space-y-6 border border-slate-800 shadow-2xl overflow-hidden">
       {/* Top Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-[#111827] border border-slate-800/80 p-4 rounded-xl">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-[#111827] border border-slate-800/80 p-3.5 sm:p-4 rounded-xl">
           <div className="flex justify-between items-start">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Volume</span>
-            <span className="bg-blue-500/10 text-blue-400 text-xs font-bold px-2 py-0.5 rounded-full border border-blue-500/20">Live</span>
+            <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">Total Volume</span>
+            <span className="bg-blue-500/10 text-blue-400 text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 py-0.5 rounded-full border border-blue-500/20">Live</span>
           </div>
-          <div className="text-3xl font-bold mt-2 text-white">{loading ? "..." : totalVolume}</div>
-          <p className="text-xs text-slate-500 mt-1">Total feedback items stored</p>
+          <div className="text-2xl sm:text-3xl font-bold mt-1.5 sm:mt-2 text-white">{loading ? "..." : totalVolume}</div>
+          <p className="text-[10px] sm:text-xs text-slate-500 mt-1">Total feedback stored</p>
         </div>
 
-        <div className="bg-[#111827] border border-slate-800/80 p-4 rounded-xl">
+        <div className="bg-[#111827] border border-slate-800/80 p-3.5 sm:p-4 rounded-xl">
           <div className="flex justify-between items-start">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Positive Share</span>
-            <span className="bg-emerald-500/10 text-emerald-400 text-xs font-bold px-2 py-0.5 rounded-full border border-emerald-500/20">Ratio</span>
+            <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">Positive Share</span>
+            <span className="bg-emerald-500/10 text-emerald-400 text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 py-0.5 rounded-full border border-emerald-500/20">Ratio</span>
           </div>
-          <div className="text-3xl font-bold mt-2 text-emerald-400">{loading ? "..." : `${posPercent}%`}</div>
-          <p className="text-xs text-slate-500 mt-1">{sentimentCounts.positive} positive responses</p>
+          <div className="text-2xl sm:text-3xl font-bold mt-1.5 sm:mt-2 text-emerald-400">{loading ? "..." : `${posPercent}%`}</div>
+          <p className="text-[10px] sm:text-xs text-slate-500 mt-1">{sentimentCounts.positive} positive reviews</p>
         </div>
 
-        <div className="bg-[#111827] border border-slate-800/80 p-4 rounded-xl">
+        <div className="bg-[#111827] border border-slate-800/80 p-3.5 sm:p-4 rounded-xl">
           <div className="flex justify-between items-start">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Negative Alerts</span>
-            <span className="bg-red-500/10 text-red-400 text-xs font-bold px-2 py-0.5 rounded-full border border-red-500/20">Attention</span>
+            <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">Negative Alerts</span>
+            <span className="bg-red-500/10 text-red-400 text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 py-0.5 rounded-full border border-red-500/20">Attention</span>
           </div>
-          <div className="text-3xl font-bold mt-2 text-red-500">{loading ? "..." : sentimentCounts.negative}</div>
-          <p className="text-xs text-slate-500 mt-1">Issues needing review</p>
+          <div className="text-2xl sm:text-3xl font-bold mt-1.5 sm:mt-2 text-red-500">{loading ? "..." : sentimentCounts.negative}</div>
+          <p className="text-[10px] sm:text-xs text-slate-500 mt-1">Issues needing review</p>
         </div>
 
-        <div className="bg-[#111827] border border-slate-800/80 p-4 rounded-xl">
+        <div className="bg-[#111827] border border-slate-800/80 p-3.5 sm:p-4 rounded-xl">
           <div className="flex justify-between items-start">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Neutral Feedback</span>
+            <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">Neutral Feedback</span>
           </div>
-          <div className="text-3xl font-bold mt-2 text-amber-400">{loading ? "..." : sentimentCounts.neutral}</div>
-          <p className="text-xs text-slate-500 mt-1">Standard suggestions</p>
+          <div className="text-2xl sm:text-3xl font-bold mt-1.5 sm:mt-2 text-amber-400">{loading ? "..." : sentimentCounts.neutral}</div>
+          <p className="text-[10px] sm:text-xs text-slate-500 mt-1">Standard suggestions</p>
         </div>
       </div>
 
       {/* Main Charts Row */}
       {totalVolume === 0 && !loading ? (
-        <div className="bg-[#111827] border border-slate-800/80 p-8 rounded-xl text-center space-y-3">
+        <div className="bg-[#111827] border border-slate-800/80 p-6 sm:p-8 rounded-xl text-center space-y-3">
           <div className="w-12 h-12 rounded-full bg-blue-500/10 text-blue-400 mx-auto flex items-center justify-center">
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
           </div>
-          <h4 className="text-base font-bold text-white">No Customer Feedback Recorded Yet</h4>
+          <h4 className="text-sm sm:text-base font-bold text-white">No Customer Feedback Recorded Yet</h4>
           <p className="text-xs text-slate-400 max-w-md mx-auto">
             This workspace currently has 0 customer feedbacks. Click &quot;Add Sample Data&quot; above to populate 130 realistic customer feedback items or import feedback from a CSV file.
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 bg-[#111827] border border-slate-800/80 p-5 rounded-xl space-y-4">
+          <div className="lg:col-span-2 bg-[#111827] border border-slate-800/80 p-4 sm:p-5 rounded-xl space-y-4 min-w-0">
             <div className="flex justify-between items-center">
               <div>
-                <h4 className="text-sm font-bold uppercase tracking-wider text-slate-200">Feedback Volume Velocity</h4>
-                <p className="text-xs text-slate-500">Ingested customer items timeline</p>
+                <h4 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-200">Feedback Volume Velocity</h4>
+                <p className="text-[10px] sm:text-xs text-slate-500">Ingested customer items timeline</p>
               </div>
-              <span className="text-xs font-semibold text-slate-400 bg-slate-800/50 px-3 py-1 rounded-md border border-slate-700/50">
+              <span className="text-[10px] sm:text-xs font-semibold text-slate-400 bg-slate-800/50 px-2.5 sm:px-3 py-1 rounded-md border border-slate-700/50">
                 Total: {totalVolume}
               </span>
             </div>
 
-          <div className="h-64 w-full">
+            <div className="h-52 sm:h-64 w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={volumeData}>
                 <defs>
@@ -179,10 +179,10 @@ export default function Analytics({ workspaceId }: AnalyticsProps) {
           </div>
         </div>
 
-        <div className="bg-[#111827] border border-slate-800/80 p-5 rounded-xl space-y-4 flex flex-col justify-between">
+        <div className="bg-[#111827] border border-slate-800/80 p-4 sm:p-5 rounded-xl space-y-4 flex flex-col justify-between min-w-0">
           <div>
-            <h4 className="text-sm font-bold uppercase tracking-wider text-slate-200">Sentiment Polarity</h4>
-            <p className="text-xs text-slate-500">Distribution breakdown across dataset</p>
+            <h4 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-200">Sentiment Polarity</h4>
+            <p className="text-[10px] sm:text-xs text-slate-500">Distribution breakdown across dataset</p>
           </div>
 
           <div className="h-48 w-full relative flex items-center justify-center">

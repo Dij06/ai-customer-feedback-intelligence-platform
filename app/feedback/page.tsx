@@ -217,15 +217,15 @@ export default function FeedbackInboxPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12 space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-12 space-y-6 min-w-0">
       {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/60 dark:border-slate-800/60 pb-5 sm:pb-6">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400">
-              <Inbox className="w-6 h-6" />
+            <div className="p-2 rounded-xl bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 shrink-0">
+              <Inbox className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
               Customer Feedback Inbox
             </h1>
           </div>
@@ -235,11 +235,11 @@ export default function FeedbackInboxPage() {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0">
+        <div className="flex items-center gap-2 flex-wrap shrink-0">
           <button
             onClick={handleClearData}
             disabled={seeding || clearing}
-            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-semibold text-rose-400 hover:text-rose-300 bg-rose-950/20 hover:bg-rose-950/40 border border-rose-800/40 transition-colors disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-semibold text-rose-600 dark:text-rose-400 bg-white dark:bg-rose-950/20 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-800/40 transition-colors shadow-2xs disabled:opacity-40"
             title="Reset this workspace to 0 feedbacks"
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -248,7 +248,7 @@ export default function FeedbackInboxPage() {
 
           <Link
             href="/feedback/import"
-            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-semibold text-slate-300 hover:text-white bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 transition-colors"
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/60 transition-colors shadow-2xs"
           >
             <Upload className="w-3.5 h-3.5 text-slate-400" />
             <span>Import CSV</span>
@@ -257,15 +257,15 @@ export default function FeedbackInboxPage() {
           <button
             onClick={handleSeedData}
             disabled={seeding || clearing}
-            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-xs font-semibold text-indigo-300 hover:text-white bg-indigo-600/15 hover:bg-indigo-600/30 border border-indigo-500/30 transition-colors disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-xs font-semibold text-indigo-600 dark:text-indigo-300 bg-white dark:bg-indigo-600/15 hover:bg-indigo-50 dark:hover:bg-indigo-600/30 border border-indigo-200 dark:border-indigo-500/30 transition-colors shadow-2xs disabled:opacity-40"
           >
-            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+            <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
             <span>{seeding ? "Populating..." : "Add Sample Data"}</span>
           </button>
 
           <Link
             href="/feedback/new"
-            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 shadow-sm shadow-blue-500/25 transition-all hover:translate-y-[-0.5px]"
+            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 shadow-xs transition-colors"
           >
             <Plus className="w-4 h-4" />
             <span>Submit Feedback</span>

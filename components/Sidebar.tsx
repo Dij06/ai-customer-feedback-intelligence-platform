@@ -57,7 +57,6 @@ export function Sidebar() {
       label: "Dashboard",
       href: "/dashboard",
       icon: LayoutDashboard,
-      badge: "Overview",
     },
     {
       label: "Feedback Inbox",
@@ -68,13 +67,11 @@ export function Sidebar() {
       label: "AI Trends",
       href: "/trends",
       icon: TrendingUp,
-      badge: "AI Clustered",
     },
     {
       label: "Ask Loop AI",
       href: "/ask",
       icon: Sparkles,
-      badge: "Assistant",
     },
     {
       label: "VoC Reports",
@@ -91,13 +88,13 @@ export function Sidebar() {
   const getRoleBadgeColor = (userRole: string | null) => {
     switch (userRole) {
       case "ADMIN":
-        return "bg-purple-500/15 text-purple-400 border-purple-500/30";
+        return "bg-purple-50 text-purple-700 border-purple-200/80 dark:bg-purple-500/15 dark:text-purple-300 dark:border-purple-500/30";
       case "ANALYST":
-        return "bg-blue-500/15 text-blue-400 border-blue-500/30";
+        return "bg-blue-50 text-blue-700 border-blue-200/80 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/30";
       case "VIEWER":
-        return "bg-amber-500/15 text-amber-400 border-amber-500/30";
+        return "bg-amber-50 text-amber-700 border-amber-200/80 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30";
       default:
-        return "bg-slate-500/15 text-slate-400 border-slate-500/30";
+        return "bg-slate-100 text-slate-700 border-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
     }
   };
 
@@ -105,7 +102,7 @@ export function Sidebar() {
   return (
     <>
       {/* Mobile Top Header Bar */}
-      <div className="lg:hidden sticky top-0 z-40 flex items-center justify-between px-4 h-16 bg-white dark:bg-[#0b0f19] border-b border-slate-200 dark:border-slate-800 backdrop-blur-md">
+      <div className="lg:hidden sticky top-0 z-40 flex items-center justify-between px-4 h-16 bg-white dark:bg-[#0b0f19] border-b border-slate-200 dark:border-slate-800 backdrop-blur-md w-full shrink-0">
         <Link href="/" className="flex items-center gap-2.5 font-bold text-lg">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-blue-500/25">
             <Sparkles className="w-4 h-4" />
@@ -134,19 +131,19 @@ export function Sidebar() {
 
       {/* Vertical Sidebar Navigation Container */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-[#0b0f19] border-r border-slate-200/90 dark:border-slate-800/80 flex flex-col justify-between transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-[#0b0f19] border-r border-slate-200/60 dark:border-slate-800/60 flex flex-col justify-between transition-transform duration-300 ease-in-out lg:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         {/* Top Section: Brand & Workspace */}
-        <div className="p-5 border-b border-slate-200/80 dark:border-slate-800/80 space-y-4">
+        <div className="p-5 border-b border-slate-200/60 dark:border-slate-800/60 space-y-4">
           <div className="flex items-center justify-between">
             <Link
               href="/"
               onClick={() => setMobileOpen(false)}
               className="flex items-center gap-3 font-bold text-xl group"
             >
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/25 group-hover:scale-105 transition-transform">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-500 flex items-center justify-center text-white shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
                 <Sparkles className="w-5 h-5" />
               </div>
               <div>
@@ -167,7 +164,7 @@ export function Sidebar() {
           </div>
 
           {/* Active Workspace & Role Indicator Card */}
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+          <div className="p-3 rounded-xl bg-slate-50/70 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between">
             <div className="flex items-center gap-2.5 overflow-hidden">
               <div className="w-7 h-7 rounded-lg bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
                 <Layers className="w-4 h-4" />
@@ -196,7 +193,7 @@ export function Sidebar() {
         </div>
 
         {/* Center Section: Navigation Links */}
-        <div className="flex-1 overflow-y-auto px-3.5 py-4 space-y-1.5">
+        <div className="flex-1 overflow-y-auto px-3.5 py-4 space-y-1">
           <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
             Platform Menu
           </div>
@@ -213,34 +210,20 @@ export function Sidebar() {
                 key={item.href}
                 href={item.href}
                 onClick={() => setMobileOpen(false)}
-                className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all group ${
+                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all group ${
                   isActive
-                    ? "bg-blue-600 text-white shadow-md shadow-blue-600/25"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-slate-800/60"
+                    ? "bg-blue-600 text-white shadow-xs font-semibold"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60"
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  <Icon
-                    className={`w-4 h-4 transition-transform group-hover:scale-110 ${
-                      isActive
-                        ? "text-white"
-                        : "text-slate-400 dark:text-slate-500 group-hover:text-blue-500"
-                    }`}
-                  />
-                  <span>{item.label}</span>
-                </div>
-
-                {item.badge && (
-                  <span
-                    className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                      isActive
-                        ? "bg-white/20 text-white"
-                        : "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800"
-                    }`}
-                  >
-                    {item.badge}
-                  </span>
-                )}
+                <Icon
+                  className={`w-4 h-4 transition-transform group-hover:scale-105 ${
+                    isActive
+                      ? "text-white"
+                      : "text-slate-400 dark:text-slate-500 group-hover:text-blue-500"
+                  }`}
+                />
+                <span>{item.label}</span>
               </Link>
             );
           })}
