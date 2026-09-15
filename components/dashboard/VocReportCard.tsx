@@ -75,7 +75,7 @@ export default function VocReportCard({ workspaceId }: { workspaceId?: string })
 
           <div className="flex items-center gap-1.5 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 px-3 py-1 rounded-full text-xs font-bold">
             <Award className="h-3.5 w-3.5 text-blue-500" />
-            <span>Est. CSAT: {report?.csatScore || "82% (4.1/5)"}</span>
+            <span>Est. CSAT: {report?.csatScore || "N/A"}</span>
           </div>
         </div>
       </div>

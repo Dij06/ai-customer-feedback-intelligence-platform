@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getWorkspaceContext } from "@/lib/rbac";
 import Groq from "groq-sdk";
 
 function getGroqClient() {
@@ -61,14 +62,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Question is required" }, { status: 400 });
     }
 
-    let whereClause: any = {};
-    if (workspaceId && workspaceId !== "undefined") {
-      whereClause = { workspaceId };
+    let activeWorkspaceId = workspaceId;
+    if (!activeWorkspaceId || activeWorkspaceId === "undefined") {
+      const context = await getWorkspaceContext(req);
+      if (context) {
+        activeWorkspaceId = context.workspaceId;
+      }
+    }
+
+    if (!activeWorkspaceId) {
+      return NextResponse.json({
+        answer: "No feedback data available in this workspace yet to answer your query.",
+      });
     }
 
     // Recent 30 feedbacks fetch karte hain context ke liye
     const recentFeedbacks = await prisma.feedback.findMany({
-      where: whereClause,
+      where: { workspaceId: activeWorkspaceId },
       take: 30,
       orderBy: { createdAt: "desc" },
       select: { content: true, sentiment: true, urgency: true },

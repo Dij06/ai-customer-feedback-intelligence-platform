@@ -1,10 +1,33 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma"; // Adjust path as per your project setup
+import { prisma } from "@/lib/prisma";
+import { getWorkspaceContext } from "@/lib/rbac";
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const workspaceId = searchParams.get("workspaceId") || "cmtbcxvci0000ex7dtm";
+    let workspaceId = searchParams.get("workspaceId");
+
+    if (!workspaceId || workspaceId === "undefined") {
+      const context = await getWorkspaceContext(req);
+      if (context) {
+        workspaceId = context.workspaceId;
+      }
+    }
+
+    if (!workspaceId) {
+      return NextResponse.json({
+        totalFeedbacks: 0,
+        sentimentStats: [
+          { name: "Positive", value: 0, fill: "#10B981" },
+          { name: "Neutral", value: 0, fill: "#64748B" },
+          { name: "Negative", value: 0, fill: "#EF4444" },
+        ],
+        urgencyStats: [
+          { name: "Urgent ⚠️", count: 0, fill: "#F59E0B" },
+          { name: "Normal", count: 0, fill: "#3B82F6" },
+        ],
+      });
+    }
 
     const totalFeedbacks = await prisma.feedback.count({
       where: { workspaceId },

@@ -55,6 +55,7 @@ export default function FeedbackInboxPage() {
   });
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
   // Filters
   const [search, setSearch] = useState("");
@@ -129,6 +130,45 @@ export default function FeedbackInboxPage() {
     }
   };
 
+  // Clear all feedbacks in workspace
+  const handleClearData = async () => {
+    if (!confirm("Are you sure you want to clear all feedback in this workspace? This will reset all counts to 0.")) {
+      return;
+    }
+    setClearing(true);
+    try {
+      const res = await fetch("/api/feedback?clearAll=true", { method: "DELETE" });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success(data.message || "All feedback items cleared.");
+        loadFeedbacks();
+      } else {
+        toast.error(data.error || "Failed to clear feedback");
+      }
+    } catch (err) {
+      toast.error("Error clearing feedback data");
+    } finally {
+      setClearing(false);
+    }
+  };
+
+  // Delete single feedback
+  const handleDeleteFeedback = async (id: string) => {
+    if (!confirm("Delete this feedback item?")) return;
+    try {
+      const res = await fetch(`/api/feedback?id=${id}`, { method: "DELETE" });
+      if (res.ok) {
+        toast.success("Feedback deleted");
+        setFeedbacks((prev) => prev.filter((item) => item.id !== id));
+        setStats((prev) => ({ ...prev, total: Math.max(0, prev.total - 1) }));
+      } else {
+        toast.error("Failed to delete feedback");
+      }
+    } catch (err) {
+      toast.error("Error deleting feedback");
+    }
+  };
+
   // Triage status change
   const handleTriage = async (id: string, newStatus: "NEW" | "REVIEWED" | "ACTIONED") => {
     try {
@@ -195,29 +235,39 @@ export default function FeedbackInboxPage() {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0">
           <button
-            onClick={handleSeedData}
-            disabled={seeding}
-            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-semibold rounded-xl shadow-md shadow-blue-500/20 transition-all flex items-center gap-1.5 hover:scale-102"
+            onClick={handleClearData}
+            disabled={seeding || clearing}
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-semibold text-rose-400 hover:text-rose-300 bg-rose-950/20 hover:bg-rose-950/40 border border-rose-800/40 transition-colors disabled:opacity-40"
+            title="Reset this workspace to 0 feedbacks"
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>{seeding ? "Populating..." : "Add Sample Data"}</span>
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>{clearing ? "Clearing..." : "Clear All"}</span>
           </button>
 
           <Link
             href="/feedback/import"
-            className="px-3.5 py-2 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-xl shadow-xs transition-all flex items-center gap-1.5"
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-semibold text-slate-300 hover:text-white bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 transition-colors"
           >
             <Upload className="w-3.5 h-3.5 text-slate-400" />
             <span>Import CSV</span>
           </Link>
 
+          <button
+            onClick={handleSeedData}
+            disabled={seeding || clearing}
+            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-xs font-semibold text-indigo-300 hover:text-white bg-indigo-600/15 hover:bg-indigo-600/30 border border-indigo-500/30 transition-colors disabled:opacity-40"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+            <span>{seeding ? "Populating..." : "Add Sample Data"}</span>
+          </button>
+
           <Link
             href="/feedback/new"
-            className="px-3.5 py-2 bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-semibold rounded-xl shadow-xs transition-all flex items-center gap-1.5"
+            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 shadow-sm shadow-blue-500/25 transition-all hover:translate-y-[-0.5px]"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-4 h-4" />
             <span>Submit Feedback</span>
           </Link>
         </div>
@@ -376,7 +426,7 @@ export default function FeedbackInboxPage() {
                   </span>
                 </div>
 
-                {/* Triage Status Pills */}
+                {/* Triage Status Pills & Delete */}
                 <div className="flex items-center gap-1.5">
                   {(["NEW", "REVIEWED", "ACTIONED"] as const).map((status) => (
                     <button
@@ -395,6 +445,14 @@ export default function FeedbackInboxPage() {
                       {status}
                     </button>
                   ))}
+
+                  <button
+                    onClick={() => handleDeleteFeedback(item.id)}
+                    className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors ml-1"
+                    title="Delete feedback item"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
 

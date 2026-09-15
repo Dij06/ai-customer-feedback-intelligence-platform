@@ -16,6 +16,7 @@ import {
   Shield,
   Clock,
   MessageSquare,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -35,21 +36,26 @@ export default function DashboardPage() {
   const [recentFeedbacks, setRecentFeedbacks] = useState<FeedbackPreview[]>([]);
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const loadDashboardData = async () => {
     setLoading(true);
     try {
       // 1. Get workspace context
+      let activeWsId: string | null = null;
       const wsRes = await fetch("/api/workspace/members");
       if (wsRes.ok) {
         const wsData = await wsRes.json();
         if (wsData.success && wsData.workspace) {
           setWorkspace(wsData.workspace);
+          activeWsId = wsData.workspace.id;
         }
       }
 
       // 2. Get recent feedback
-      const fbRes = await fetch("/api/feedback?limit=6");
+      const fbUrl = activeWsId ? `/api/feedback?workspaceId=${activeWsId}&limit=6` : `/api/feedback?limit=6`;
+      const fbRes = await fetch(fbUrl);
       if (fbRes.ok) {
         const fbData = await fbRes.json();
         if (Array.isArray(fbData)) {
@@ -58,6 +64,7 @@ export default function DashboardPage() {
           setRecentFeedbacks(fbData.feedbacks.slice(0, 6));
         }
       }
+      setRefreshKey((k) => k + 1);
     } catch (err) {
       console.error("Error loading dashboard:", err);
     } finally {
@@ -84,6 +91,27 @@ export default function DashboardPage() {
       toast.error("Error seeding data");
     } finally {
       setSeeding(false);
+    }
+  };
+
+  const handleClearData = async () => {
+    if (!confirm("Are you sure you want to clear all feedback in this workspace? This will reset all counts and charts to 0.")) {
+      return;
+    }
+    setClearing(true);
+    try {
+      const res = await fetch("/api/feedback?clearAll=true", { method: "DELETE" });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success(data.message || "All feedback cleared successfully.");
+        loadDashboardData();
+      } else {
+        toast.error(data.error || "Failed to clear feedback");
+      }
+    } catch (err) {
+      toast.error("Error clearing feedback data");
+    } finally {
+      setClearing(false);
     }
   };
 
@@ -122,13 +150,23 @@ export default function DashboardPage() {
         </div>
 
         {/* Header Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0">
+          <button
+            onClick={handleClearData}
+            disabled={seeding || clearing}
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-semibold text-rose-400 hover:text-rose-300 bg-rose-950/20 hover:bg-rose-950/40 border border-rose-800/40 transition-colors disabled:opacity-40"
+            title="Reset this workspace to 0 feedbacks"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>{clearing ? "Clearing..." : "Clear Data"}</span>
+          </button>
+
           <button
             onClick={handleSeedData}
-            disabled={seeding}
-            className="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-semibold rounded-xl shadow-md shadow-blue-500/20 transition-all flex items-center gap-1.5 hover:scale-102"
+            disabled={seeding || clearing}
+            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-xs font-semibold text-indigo-300 hover:text-white bg-indigo-600/15 hover:bg-indigo-600/30 border border-indigo-500/30 transition-colors disabled:opacity-40"
           >
-            <Sparkles className="w-3.5 h-3.5" />
+            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
             <span>{seeding ? "Populating..." : "Add Sample Data"}</span>
           </button>
 
@@ -138,12 +176,12 @@ export default function DashboardPage() {
 
       {/* 1. Analytics Charts Section (Sentiment Breakdown & Volume Timeline) */}
       <div className="w-full">
-        <Analytics workspaceId={workspace?.id} />
+        <Analytics key={`analytics-${workspace?.id}-${refreshKey}`} workspaceId={workspace?.id} />
       </div>
 
       {/* 2. Single Best VoC Intelligence Section */}
       <div className="w-full">
-        <VocReportCard workspaceId={workspace?.id} />
+        <VocReportCard key={`voc-${workspace?.id}-${refreshKey}`} workspaceId={workspace?.id} />
       </div>
 
       {/* 3. Recent Urgent Customer Feedback Feed */}

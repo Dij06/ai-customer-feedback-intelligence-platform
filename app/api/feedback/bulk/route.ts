@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { getWorkspaceContext } from "@/lib/rbac";
 import Groq from "groq-sdk";
 
 export const dynamic = "force-dynamic";
@@ -45,27 +46,22 @@ export async function POST(req: Request) {
       });
     }
 
-    // Verify workspace exists or fallback to first workspace
-    let dbWorkspace = null;
-    if (workspaceId && workspaceId !== "undefined") {
-      dbWorkspace = await prisma.workspace.findUnique({
-        where: { id: workspaceId },
-      });
-    }
+    // Resolve workspace context
+    const context = await getWorkspaceContext(req);
+    let activeWorkspaceId = workspaceId;
 
-    if (!dbWorkspace) {
-      dbWorkspace = await prisma.workspace.findFirst();
-      if (!dbWorkspace) {
-        dbWorkspace = await prisma.workspace.create({
-          data: {
-            name: "Acme Corp Workspace",
-            slug: "acme-corp",
-          },
-        });
+    if (!activeWorkspaceId || activeWorkspaceId === "undefined") {
+      if (context?.workspaceId) {
+        activeWorkspaceId = context.workspaceId;
+      } else {
+        const dbWorkspace = await prisma.workspace.findFirst();
+        activeWorkspaceId = dbWorkspace?.id;
       }
     }
 
-    const activeWorkspaceId = dbWorkspace.id;
+    if (!activeWorkspaceId) {
+      return NextResponse.json({ error: "No active workspace found for feedback import" }, { status: 400 });
+    }
 
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {

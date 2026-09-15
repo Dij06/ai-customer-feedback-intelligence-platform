@@ -66,9 +66,9 @@ export default function Analytics({ workspaceId }: AnalyticsProps) {
   const negPercent = totalSentiments > 0 ? Math.round((sentimentCounts.negative / totalSentiments) * 100) : 0;
 
   const sentimentData = [
-    { name: "Positive", value: posPercent || 1, color: "#3B82F6" },
-    { name: "Neutral", value: neuPercent || 1, color: "#F59E0B" },
-    { name: "Negative", value: negPercent || 1, color: "#EC4899" },
+    { name: "Positive", value: posPercent, color: "#3B82F6" },
+    { name: "Neutral", value: neuPercent, color: "#F59E0B" },
+    { name: "Negative", value: negPercent, color: "#EC4899" },
   ];
 
   const volumeData = [
@@ -122,17 +122,30 @@ export default function Analytics({ workspaceId }: AnalyticsProps) {
       </div>
 
       {/* Main Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-[#111827] border border-slate-800/80 p-5 rounded-xl space-y-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h4 className="text-sm font-bold uppercase tracking-wider text-slate-200">Feedback Volume Velocity</h4>
-              <p className="text-xs text-slate-500">Ingested customer items timeline</p>
-            </div>
-            <span className="text-xs font-semibold text-slate-400 bg-slate-800/50 px-3 py-1 rounded-md border border-slate-700/50">
-              Total: {totalVolume}
-            </span>
+      {totalVolume === 0 && !loading ? (
+        <div className="bg-[#111827] border border-slate-800/80 p-8 rounded-xl text-center space-y-3">
+          <div className="w-12 h-12 rounded-full bg-blue-500/10 text-blue-400 mx-auto flex items-center justify-center">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
           </div>
+          <h4 className="text-base font-bold text-white">No Customer Feedback Recorded Yet</h4>
+          <p className="text-xs text-slate-400 max-w-md mx-auto">
+            This workspace currently has 0 customer feedbacks. Click &quot;Add Sample Data&quot; above to populate 130 realistic customer feedback items or import feedback from a CSV file.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 bg-[#111827] border border-slate-800/80 p-5 rounded-xl space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h4 className="text-sm font-bold uppercase tracking-wider text-slate-200">Feedback Volume Velocity</h4>
+                <p className="text-xs text-slate-500">Ingested customer items timeline</p>
+              </div>
+              <span className="text-xs font-semibold text-slate-400 bg-slate-800/50 px-3 py-1 rounded-md border border-slate-700/50">
+                Total: {totalVolume}
+              </span>
+            </div>
 
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -216,6 +229,7 @@ export default function Analytics({ workspaceId }: AnalyticsProps) {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

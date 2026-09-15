@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getWorkspaceContext } from "@/lib/rbac";
 import Groq from "groq-sdk";
 
 function getGroqClient() {
@@ -54,15 +55,27 @@ async function getGroqCompletion(prompt: string) {
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const workspaceId = searchParams.get("workspaceId");
+    let workspaceId = searchParams.get("workspaceId");
 
-    let whereClause: any = {};
-    if (workspaceId && workspaceId !== "undefined") {
-      whereClause = { workspaceId };
+    if (!workspaceId || workspaceId === "undefined") {
+      const context = await getWorkspaceContext(req);
+      if (context) {
+        workspaceId = context.workspaceId;
+      }
+    }
+
+    if (!workspaceId) {
+      return NextResponse.json({
+        summary: "No customer feedback recorded yet. Add feedback or click 'Add Sample Data' to generate automated VoC intelligence.",
+        csatScore: "N/A",
+        keyWins: ["Awaiting customer reviews"],
+        topComplaints: ["No critical complaints detected"],
+        actionItems: ["Import CSV or connect feedback webhook sources."],
+      });
     }
 
     const feedbacks = await prisma.feedback.findMany({
-      where: whereClause,
+      where: { workspaceId },
       take: 40,
       orderBy: { createdAt: "desc" },
     });

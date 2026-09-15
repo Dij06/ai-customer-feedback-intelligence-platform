@@ -1,21 +1,75 @@
 import { NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { getWorkspaceContext, unauthorizedResponse } from "@/lib/rbac";
 import Groq from "groq-sdk";
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const workspaceId = searchParams.get("workspaceId");
+    let workspaceId = searchParams.get("workspaceId");
 
-    let whereClause = {};
-    if (workspaceId && workspaceId !== "undefined") {
-      whereClause = { workspaceId };
+    // If workspaceId is not explicitly passed, resolve from authenticated session
+    if (!workspaceId || workspaceId === "undefined") {
+      const context = await getWorkspaceContext(req);
+      if (context) {
+        workspaceId = context.workspaceId;
+      }
     }
 
+    // Strict multi-tenant isolation: Never leak other workspaces' feedback!
+    if (!workspaceId) {
+      return NextResponse.json([]);
+    }
+
+    const where: any = { workspaceId };
+
+    const search = searchParams.get("search");
+    if (search && search.trim()) {
+      where.OR = [
+        { content: { contains: search.trim(), mode: "insensitive" } },
+        { customerName: { contains: search.trim(), mode: "insensitive" } },
+        { customerEmail: { contains: search.trim(), mode: "insensitive" } },
+        { summary: { contains: search.trim(), mode: "insensitive" } },
+      ];
+    }
+
+    const sentiment = searchParams.get("sentiment");
+    if (sentiment && sentiment !== "ALL") {
+      where.sentiment = {
+        equals: sentiment,
+        mode: "insensitive",
+      };
+    }
+
+    const urgency = searchParams.get("urgency");
+    if (urgency && urgency !== "ALL") {
+      where.urgency = {
+        equals: urgency,
+        mode: "insensitive",
+      };
+    }
+
+    const status = searchParams.get("status");
+    if (status && status !== "ALL") {
+      where.status = status;
+    }
+
+    const category = searchParams.get("category");
+    if (category && category !== "ALL") {
+      where.category = {
+        equals: category,
+        mode: "insensitive",
+      };
+    }
+
+    const limitParam = searchParams.get("limit");
+    const take = limitParam ? parseInt(limitParam, 10) : undefined;
+
     const feedbacks = await prisma.feedback.findMany({
-      where: whereClause,
+      where,
       orderBy: { createdAt: "desc" },
+      ...(take && !isNaN(take) ? { take } : {}),
     });
 
     return NextResponse.json(feedbacks);
@@ -24,6 +78,42 @@ export async function GET(req: Request) {
       { message: "Failed to fetch feedbacks", error: error.message },
       { status: 500 }
     );
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const context = await getWorkspaceContext(req);
+    if (!context) {
+      return unauthorizedResponse("Please sign in to delete feedback.");
+    }
+
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+    const clearAll = searchParams.get("clearAll") === "true";
+
+    if (clearAll) {
+      const deleted = await prisma.feedback.deleteMany({
+        where: { workspaceId: context.workspaceId },
+      });
+      return NextResponse.json({
+        success: true,
+        message: `Cleared ${deleted.count} feedback items from workspace.`,
+        count: deleted.count,
+      });
+    }
+
+    if (!id) {
+      return NextResponse.json({ error: "Missing feedback ID to delete" }, { status: 400 });
+    }
+
+    await prisma.feedback.delete({
+      where: { id, workspaceId: context.workspaceId },
+    });
+
+    return NextResponse.json({ success: true, message: "Feedback deleted successfully" });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || "Failed to delete feedback" }, { status: 500 });
   }
 }
 
@@ -54,66 +144,35 @@ export async function POST(req: Request) {
       );
     }
 
-    // Verify workspace exists in DB or fallback to default workspace
-    let dbWorkspace = null;
-    if (workspaceId && workspaceId !== "undefined") {
-      dbWorkspace = await prisma.workspace.findUnique({
-        where: { id: workspaceId },
-      });
+    // Resolve active workspace and user from authenticated context
+    let dbWorkspaceId = workspaceId;
+    let dbUserId = null;
+
+    const context = await getWorkspaceContext(req);
+    if (context) {
+      dbWorkspaceId = context.workspaceId;
+      dbUserId = context.userId;
+    } else if (workspaceId && workspaceId !== "undefined") {
+      const ws = await prisma.workspace.findUnique({ where: { id: workspaceId } });
+      if (ws) dbWorkspaceId = ws.id;
     }
 
-    if (!dbWorkspace) {
-      dbWorkspace = await prisma.workspace.findFirst();
-      if (!dbWorkspace) {
-        dbWorkspace = await prisma.workspace.create({
+    if (!dbWorkspaceId) {
+      return NextResponse.json({ error: "No active workspace found for feedback submission" }, { status: 400 });
+    }
+
+    if (!dbUserId) {
+      let fallbackUser = await prisma.user.findFirst();
+      if (!fallbackUser) {
+        fallbackUser = await prisma.user.create({
           data: {
-            name: "Acme Corp Workspace",
-            slug: "acme-corp",
+            clerkUserId: "system_user",
+            email: "system@feedback.local",
+            name: "System User",
           },
         });
       }
-    }
-
-    // Attempt to identify current authenticated user via Clerk
-    let dbUser = null;
-    try {
-      const { userId } = await auth();
-      if (userId) {
-        dbUser = await prisma.user.findFirst({
-          where: {
-            OR: [{ id: userId }, { clerkUserId: userId }],
-          },
-        });
-
-        if (!dbUser) {
-          const user = await currentUser();
-          const email = user?.emailAddresses[0]?.emailAddress || `${userId}@example.com`;
-          const name = `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || "User";
-          dbUser = await prisma.user.create({
-            data: {
-              clerkUserId: userId,
-              email,
-              name,
-            },
-          });
-        }
-      }
-    } catch {
-      // Auth check failed or unauthenticated request
-    }
-
-    // Fallback user if not logged in or auth is omitted
-    if (!dbUser) {
-      dbUser = await prisma.user.findFirst();
-      if (!dbUser) {
-        dbUser = await prisma.user.create({
-          data: {
-            clerkUserId: "default_user",
-            email: "user@example.com",
-            name: "Default User",
-          },
-        });
-      }
+      dbUserId = fallbackUser.id;
     }
 
     // Sentiment & AI analysis
@@ -170,8 +229,8 @@ Feedback: "${rawText}"`,
         sentiment: sentiment || "NEUTRAL",
         category: category || "General",
         urgency: mappedUrgency,
-        workspaceId: dbWorkspace ? dbWorkspace.id : null,
-        userId: dbUser.id,
+        workspaceId: dbWorkspaceId,
+        userId: dbUserId,
       },
     });
 

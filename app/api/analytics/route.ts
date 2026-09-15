@@ -1,12 +1,28 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma'; // Adjust path according to your setup
+import { prisma } from '@/lib/prisma';
+import { getWorkspaceContext } from '@/lib/rbac';
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const workspaceId = searchParams.get('workspaceId');
+    let workspaceId = searchParams.get('workspaceId');
 
-    const whereClause = workspaceId ? { workspaceId } : {};
+    if (!workspaceId || workspaceId === 'undefined') {
+      const context = await getWorkspaceContext(request);
+      if (context) {
+        workspaceId = context.workspaceId;
+      }
+    }
+
+    if (!workspaceId) {
+      return NextResponse.json({
+        totalCount: 0,
+        sentimentData: [],
+        channelData: [],
+      });
+    }
+
+    const whereClause = { workspaceId };
 
     // 1. Sentiment Count Aggregation
     const sentiments = await prisma.feedback.groupBy({
