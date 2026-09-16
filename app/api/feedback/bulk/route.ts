@@ -98,24 +98,29 @@ Feedback: "${text}"`,
           const resultText = completion.choices[0]?.message?.content || "{}";
           const aiData = JSON.parse(resultText);
 
+          const mappedUrgency =
+            aiData.urgency === true || aiData.urgency === "High"
+              ? "High"
+              : aiData.urgency === "Low"
+              ? "Low"
+              : "Medium";
+
           return {
             content: text,
-            text: text,
             source: "CSV",
             userId: dbUser.id,
             sentiment: aiData.sentiment || "NEUTRAL",
-            urgency: Boolean(aiData.urgency),
+            urgency: mappedUrgency,
             category: aiData.category || "General",
             workspaceId: activeWorkspaceId,
           };
         } catch (err) {
           return {
             content: text,
-            text: text,
             source: "CSV",
             userId: dbUser.id,
             sentiment: "NEUTRAL",
-            urgency: false,
+            urgency: "Medium",
             category: "General",
             workspaceId: activeWorkspaceId,
           };

@@ -9,8 +9,6 @@ import {
   ArrowRight,
   X,
   MessageSquare,
-  Flame,
-  CheckCircle2,
   RefreshCw,
   Trash2,
 } from "lucide-react";
@@ -219,7 +217,6 @@ export default function TrendsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           {themes.map((theme) => {
-            const hasData = theme.count > 0;
             return (
               <div
                 key={theme.id}

@@ -3,7 +3,7 @@ export interface SeedFeedbackItem {
   source: 'Support Ticket' | 'App Store Review' | 'NPS Survey' | 'Sales Call Note' | 'Community Post' | 'Email' | 'Discord' | 'Twitter' | 'Web Form' | 'Survey';
   sentiment: 'Positive' | 'Neutral' | 'Negative';
   sentimentScore: number;
-  category: 'Performance' | 'Bug' | 'Feature Request' | 'UI/UX' | 'Billing' | 'Support' | 'General';
+  category: 'Performance' | 'Bug' | 'Feature Request' | 'UI/UX' | 'Billing' | 'Support' | 'Pricing' | 'Security' | 'General';
   urgency: 'High' | 'Medium' | 'Low';
   status: 'NEW' | 'REVIEWED' | 'ACTIONED';
   customerName: string;
@@ -681,6 +681,24 @@ export function generateFullSeedDataset(): SeedFeedbackItem[] {
       urgency: 'Low' as const,
       source: 'Email' as const,
       tag: 'tax-receipts',
+    },
+    {
+      contentTemplate: (topic: string) => `Pricing evaluation: Enterprise contract quote requested for ${topic} with custom annual commitment.`,
+      sentiment: 'Neutral' as const,
+      sentimentScore: 0.2,
+      category: 'Pricing' as const,
+      urgency: 'Medium' as const,
+      source: 'Sales Call Note' as const,
+      tag: 'pricing-quote',
+    },
+    {
+      contentTemplate: (topic: string) => `Security audit passed: ${topic} meets all SOC2 Type II controls and SSO authentication guidelines.`,
+      sentiment: 'Positive' as const,
+      sentimentScore: 0.95,
+      category: 'Security' as const,
+      urgency: 'Low' as const,
+      source: 'Email' as const,
+      tag: 'soc2-sso',
     },
   ];
 

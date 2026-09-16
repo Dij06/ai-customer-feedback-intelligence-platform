@@ -255,4 +255,52 @@ Feedback: "${rawText}"`,
   }
 }
 
+export async function PATCH(req: Request) {
+  try {
+    const context = await getWorkspaceContext(req);
+    if (!context) {
+      return unauthorizedResponse("Please sign in to update feedback.");
+    }
+
+    const { searchParams } = new URL(req.url);
+    const body = await req.json().catch(() => ({}));
+    const id = searchParams.get("id") || body.id;
+    const status = body.status;
+    const category = body.category;
+
+    if (!id) {
+      return NextResponse.json({ error: "Missing feedback ID" }, { status: 400 });
+    }
+
+    const feedback = await prisma.feedback.findFirst({
+      where: { id, workspaceId: context.workspaceId },
+    });
+
+    if (!feedback) {
+      return NextResponse.json({ error: "Feedback not found in workspace" }, { status: 404 });
+    }
+
+    const updateData: any = {};
+    if (status && ["NEW", "REVIEWED", "ACTIONED"].includes(status)) {
+      updateData.status = status;
+    }
+    if (category) {
+      updateData.category = category;
+    }
+
+    const updated = await prisma.feedback.update({
+      where: { id },
+      data: updateData,
+    });
+
+    return NextResponse.json({ success: true, feedback: updated });
+  } catch (error: any) {
+    console.error("PATCH Error:", error);
+    return NextResponse.json(
+      { error: error?.message || "Failed to update feedback" },
+      { status: 500 }
+    );
+  }
+}
+
 
