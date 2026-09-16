@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateFullSeedDataset } from "@/lib/seed-data";
 import { getWorkspaceContext, unauthorizedResponse } from "@/lib/rbac";
-import { generateEmbedding } from "@/lib/embeddings";
+import { generateLocalSemanticEmbedding } from "@/lib/embeddings";
+import crypto from "crypto";
 
 const THEME_DEFINITIONS = [
   { name: "Performance", description: "Application speed, loading times, and responsiveness", color: "#f59e0b" },
@@ -30,91 +31,100 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Workspace not found" }, { status: 404 });
     }
 
-    // Ensure all 8 default themes exist in active workspace
-    for (const td of THEME_DEFINITIONS) {
-      await prisma.theme.upsert({
-        where: {
-          name_workspaceId: {
-            name: td.name,
-            workspaceId: activeWorkspace.id,
-          },
-        },
-        update: { description: td.description, color: td.color },
-        create: {
+    // Ensure default themes exist in active workspace in a single batch check
+    const existingThemes = await prisma.theme.findMany({
+      where: { workspaceId: activeWorkspace.id },
+    });
+    const existingNames = new Set(existingThemes.map((t) => t.name.toLowerCase()));
+    const missingThemes = THEME_DEFINITIONS.filter((td) => !existingNames.has(td.name.toLowerCase()));
+
+    if (missingThemes.length > 0) {
+      await prisma.theme.createMany({
+        data: missingThemes.map((td) => ({
           name: td.name,
           description: td.description,
           color: td.color,
           workspaceId: activeWorkspace.id,
-        },
+        })),
+        skipDuplicates: true,
       });
     }
 
-    const themes = await prisma.theme.findMany({
+    const allThemes = await prisma.theme.findMany({
       where: { workspaceId: activeWorkspace.id },
     });
-    const themeMap = new Map<string, string>(themes.map((t) => [t.name.toLowerCase(), t.id]));
+    const themeMap = new Map<string, string>(allThemes.map((t) => [t.name.toLowerCase(), t.id]));
 
     // Generate comprehensive seed dataset
     const rawDataset = generateFullSeedDataset();
     const now = Date.now();
 
-    // Remove existing seed feedback to avoid infinite duplicate bloat
-    await prisma.feedback.deleteMany({
+    // Fast cleanup of existing feedback and relations for this workspace
+    const existingFeedbacks = await prisma.feedback.findMany({
       where: { workspaceId: activeWorkspace.id },
+      select: { id: true },
     });
+    const existingIds = existingFeedbacks.map((f) => f.id);
+
+    if (existingIds.length > 0) {
+      await prisma.$transaction([
+        prisma.feedbackTheme.deleteMany({ where: { feedbackId: { in: existingIds } } }),
+        prisma.embedding.deleteMany({ where: { feedbackId: { in: existingIds } } }),
+        prisma.feedback.deleteMany({ where: { id: { in: existingIds } } }),
+      ]);
+    }
+
+    // Prepare batch arrays with precomputed UUIDs
+    const feedbacksToInsert = [];
+    const feedbackThemesToInsert = [];
+    const embeddingsToInsert = [];
 
     for (const item of rawDataset) {
+      const feedbackId = crypto.randomUUID();
       const createdDate = new Date(now - item.daysAgo * 24 * 60 * 60 * 1000);
 
-      const feedback = await prisma.feedback.create({
-        data: {
-          content: item.content,
-          source: item.source,
-          sentiment: item.sentiment,
-          sentimentScore: item.sentimentScore,
-          category: item.category,
-          urgency: item.urgency,
-          status: item.status,
-          customerName: item.customerName,
-          customerEmail: item.customerEmail,
-          summary: item.summary,
-          tags: item.tags,
-          createdAt: createdDate,
-          workspaceId: activeWorkspace.id,
-          userId: context.userId,
-        },
+      feedbacksToInsert.push({
+        id: feedbackId,
+        content: item.content,
+        source: item.source,
+        sentiment: item.sentiment,
+        sentimentScore: item.sentimentScore,
+        category: item.category,
+        urgency: item.urgency,
+        status: item.status,
+        customerName: item.customerName,
+        customerEmail: item.customerEmail,
+        summary: item.summary,
+        tags: item.tags,
+        createdAt: createdDate,
+        workspaceId: activeWorkspace.id,
+        userId: context.userId,
       });
 
-      // Link to matching theme if exists
       const targetThemeId = item.category ? themeMap.get(item.category.toLowerCase()) : null;
       if (targetThemeId) {
-        await prisma.feedbackTheme.upsert({
-          where: {
-            feedbackId_themeId: {
-              feedbackId: feedback.id,
-              themeId: targetThemeId,
-            },
-          },
-          update: { confidence: 0.95 },
-          create: {
-            feedbackId: feedback.id,
-            themeId: targetThemeId,
-            confidence: 0.95,
-          },
+        feedbackThemesToInsert.push({
+          id: crypto.randomUUID(),
+          feedbackId,
+          themeId: targetThemeId,
+          confidence: 0.95,
         });
       }
 
-      // Generate embedding vector
-      const vector = await generateEmbedding(item.content);
-      await prisma.embedding.upsert({
-        where: { feedbackId: feedback.id },
-        update: { vector: JSON.stringify(vector) },
-        create: {
-          feedbackId: feedback.id,
-          vector: JSON.stringify(vector),
-        },
+      const vector = generateLocalSemanticEmbedding(item.content);
+      embeddingsToInsert.push({
+        id: crypto.randomUUID(),
+        feedbackId,
+        vector: JSON.stringify(vector),
       });
     }
+
+    // Execute batch inserts inside an atomic fast transaction
+    await prisma.$transaction([
+      prisma.feedback.createMany({ data: feedbacksToInsert }),
+      prisma.feedbackTheme.createMany({ data: feedbackThemesToInsert, skipDuplicates: true }),
+      prisma.embedding.createMany({ data: embeddingsToInsert, skipDuplicates: true }),
+    ]);
 
     return NextResponse.json({
       success: true,

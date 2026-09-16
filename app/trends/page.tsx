@@ -12,6 +12,7 @@ import {
   Flame,
   CheckCircle2,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -45,6 +46,7 @@ export default function TrendsPage() {
   const [themes, setThemes] = useState<ThemeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [selectedThemeId, setSelectedThemeId] = useState<string | null>(null);
   const [drillDownFeedbacks, setDrillDownFeedbacks] = useState<DrillDownFeedback[]>([]);
   const [drillDownLoading, setDrillDownLoading] = useState(false);
@@ -86,6 +88,27 @@ export default function TrendsPage() {
       toast.error("Error seeding sample data");
     } finally {
       setSeeding(false);
+    }
+  };
+
+  const handleClearData = async () => {
+    if (!confirm("Are you sure you want to clear all feedback in this workspace? This will reset all trends to 0.")) {
+      return;
+    }
+    setClearing(true);
+    try {
+      const res = await fetch("/api/feedback?clearAll=true", { method: "DELETE" });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success(data.message || "All feedback cleared successfully.");
+        fetchThemes();
+      } else {
+        toast.error(data.error || "Failed to clear feedback");
+      }
+    } catch (err) {
+      toast.error("Error clearing feedback data");
+    } finally {
+      setClearing(false);
     }
   };
 
@@ -138,6 +161,15 @@ export default function TrendsPage() {
           </button>
 
           <button
+            onClick={handleClearData}
+            disabled={clearing}
+            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg border border-rose-200 dark:border-rose-900/50 bg-white dark:bg-rose-950/20 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors shadow-2xs disabled:opacity-40"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>{clearing ? "Clearing..." : "Clear All"}</span>
+          </button>
+
+          <button
             onClick={handleSeedData}
             disabled={seeding}
             className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-xs transition-colors disabled:opacity-40"
@@ -148,7 +180,7 @@ export default function TrendsPage() {
         </div>
       </div>
 
-      {/* Grid of 8 Trend Theme Cards */}
+      {/* Grid of Trend Theme Cards */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
@@ -162,21 +194,27 @@ export default function TrendsPage() {
             </div>
           ))}
         </div>
-      ) : themes.length === 0 ? (
-        <div className="p-12 text-center rounded-2xl bg-white dark:bg-slate-900/40 border border-dashed border-slate-300 dark:border-slate-800 space-y-4">
-          <TrendingUp className="w-10 h-10 mx-auto text-slate-400" />
+      ) : !themes || themes.length === 0 || !themes.some((t) => t.count > 0) ? (
+        <div className="p-8 sm:p-12 text-center rounded-2xl bg-white dark:bg-slate-900/40 border border-dashed border-slate-300 dark:border-slate-800 space-y-4">
+          <div className="w-12 h-12 rounded-full bg-purple-500/10 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 mx-auto flex items-center justify-center">
+            <TrendingUp className="w-6 h-6" />
+          </div>
           <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">
-            No Trend Themes Yet
+            No Feedback Trends Recorded Yet
           </h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            Click &ldquo;Populate Sample Data&rdquo; to instantly generate customer reviews across all 8 categories.
+            This workspace currently has 0 customer feedbacks. Click &ldquo;Add Sample Data&rdquo; to populate customer reviews across all topics.
           </p>
-          <button
-            onClick={handleSeedData}
-            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl shadow-md"
-          >
-            Populate Sample Data Now
-          </button>
+          <div className="pt-2">
+            <button
+              onClick={handleSeedData}
+              disabled={seeding}
+              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-xs transition-colors disabled:opacity-40"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>{seeding ? "Populating..." : "Add Sample Data"}</span>
+            </button>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">

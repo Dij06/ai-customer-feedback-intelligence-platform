@@ -93,13 +93,24 @@ export async function DELETE(req: Request) {
     const clearAll = searchParams.get("clearAll") === "true";
 
     if (clearAll) {
-      const deleted = await prisma.feedback.deleteMany({
+      const workspaceFeedbacks = await prisma.feedback.findMany({
         where: { workspaceId: context.workspaceId },
+        select: { id: true },
       });
+      const feedbackIds = workspaceFeedbacks.map((f) => f.id);
+
+      if (feedbackIds.length > 0) {
+        await prisma.$transaction([
+          prisma.feedbackTheme.deleteMany({ where: { feedbackId: { in: feedbackIds } } }),
+          prisma.embedding.deleteMany({ where: { feedbackId: { in: feedbackIds } } }),
+          prisma.feedback.deleteMany({ where: { id: { in: feedbackIds } } }),
+        ]);
+      }
+
       return NextResponse.json({
         success: true,
-        message: `Cleared ${deleted.count} feedback items from workspace.`,
-        count: deleted.count,
+        message: `Cleared ${feedbackIds.length} feedback items from workspace.`,
+        count: feedbackIds.length,
       });
     }
 

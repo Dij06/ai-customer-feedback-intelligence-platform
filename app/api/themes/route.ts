@@ -96,6 +96,18 @@ export async function GET(req: NextRequest) {
       },
     });
 
+    if (allFeedbacks.length === 0) {
+      return NextResponse.json({
+        success: true,
+        themes: [],
+        totalThemes: 0,
+        context: {
+          workspaceName: context.workspaceName,
+          userRole: context.userRole,
+        },
+      });
+    }
+
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
     const enrichedThemes = allThemes.map((theme) => {
@@ -160,13 +172,15 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    // Sort by count descending so most active topics appear first
-    enrichedThemes.sort((a, b) => b.count - a.count);
+    // Only return themes with active feedback, sorted by count descending
+    const activeThemes = enrichedThemes
+      .filter((t) => t.count > 0)
+      .sort((a, b) => b.count - a.count);
 
     return NextResponse.json({
       success: true,
-      themes: enrichedThemes,
-      totalThemes: enrichedThemes.length,
+      themes: activeThemes,
+      totalThemes: activeThemes.length,
       context: {
         workspaceName: context.workspaceName,
         userRole: context.userRole,
