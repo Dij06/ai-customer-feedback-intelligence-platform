@@ -32,6 +32,39 @@ function createMsgId(prefix: string) {
   return `${prefix}-${Math.random().toString(36).substring(2, 9)}`;
 }
 
+function renderCleanMessage(content: string) {
+  // Strip all asterisks
+  const clean = content.replace(/\*/g, '');
+  const lines = clean.split('\n');
+
+  return lines.map((line, idx) => {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      return <div key={idx} className="h-1.5" />;
+    }
+
+    // If line has "• Topic: description" or "- Topic: description", bold the Topic part cleanly
+    const match = line.match(/^([•\-–]\s*)([^:]+)(:.*)$/);
+    if (match) {
+      return (
+        <div key={idx} className="flex items-start gap-1">
+          <span className="shrink-0">{match[1]}</span>
+          <span>
+            <strong className="font-semibold text-slate-900 dark:text-white">{match[2]}</strong>
+            {match[3]}
+          </span>
+        </div>
+      );
+    }
+
+    return (
+      <div key={idx}>
+        {line}
+      </div>
+    );
+  });
+}
+
 export default function AskLoopPage() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -40,7 +73,7 @@ export default function AskLoopPage() {
       id: 'welcome',
       role: 'assistant',
       content:
-        "Hello! I'm **Ask LOOP**, your AI customer intelligence assistant powered by **Grok (xAI)**. Ask me anything in plain English about what customers like, top complaints, bug reports, or feature requests.",
+        "Hello! I'm Ask LOOP, your AI customer intelligence assistant. Ask me anything in plain English about what customers like, top complaints, bug reports, or feature requests.",
       timestamp: 'Just now',
       suggestedFollowUps: [
         'What are users saying about onboarding & workspace setup?',
@@ -67,21 +100,21 @@ export default function AskLoopPage() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/insights', {
+      const res = await fetch('/api/ask-loop', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question }),
       });
       const data = await res.json();
 
-      if (data.success) {
+      if (data.answer || data.success) {
         const aiMsg: Message = {
           id: createMsgId('ai'),
           role: 'assistant',
-          content: data.answer,
+          content: data.answer || "I found no results for that question in the workspace.",
           timestamp: getFormattedTime(),
-          confidence: data.confidence,
-          provider: data.provider,
+          confidence: data.confidence || 0.95,
+          provider: data.provider || "Ask LOOP",
           citedItems: data.citedItems || [],
           suggestedFollowUps: data.suggestedFollowUps || [],
         };
@@ -90,7 +123,7 @@ export default function AskLoopPage() {
         const errorMsg: Message = {
           id: createMsgId('err'),
           role: 'assistant',
-          content: 'Sorry, I had trouble searching the workspace feedback. Please try again.',
+          content: data.error || 'Sorry, I had trouble searching the workspace feedback. Please try again.',
           timestamp: getFormattedTime(),
         };
         setMessages((prev) => [...prev, errorMsg]);
@@ -155,34 +188,34 @@ export default function AskLoopPage() {
               >
                 {/* Provider tag */}
                 {msg.role === 'assistant' && (
-                  <div className="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-slate-100 dark:border-slate-800 text-2xs text-slate-400">
+                  <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-slate-100 dark:border-slate-800 text-2xs text-slate-400">
                     <span className="font-semibold flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
                       <span className="w-2 h-2 rounded-full bg-blue-600" />
-                      {msg.provider || 'Grok (xAI)'}
+                      {msg.provider || 'Ask LOOP AI'}
                     </span>
-                    {msg.confidence && (
-                      <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-slate-600 dark:text-slate-300 font-medium">
-                        Verified from workspace data
-                      </span>
-                    )}
                   </div>
                 )}
 
                 {/* Message text */}
-                <p className="text-sm leading-relaxed whitespace-pre-wrap font-normal">
-                  {msg.content}
-                </p>
+                <div className="text-sm leading-relaxed space-y-1 font-normal">
+                  {renderCleanMessage(msg.content)}
+                </div>
 
-                {/* Citations and customer quotes */}
+                {/* Citations and customer quotes (collapsible) */}
                 {msg.citedItems && msg.citedItems.length > 0 && (
-                  <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
-                    <div className="text-2xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
-                      <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                      </svg>
-                      Customer Quotes &amp; Evidence ({msg.citedItems.length})
-                    </div>
-                    <div className="grid grid-cols-1 gap-2">
+                  <details className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 group">
+                    <summary className="cursor-pointer select-none text-2xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 flex items-center justify-between list-none">
+                      <span className="flex items-center gap-1.5">
+                        <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        Customer Quotes &amp; Evidence ({msg.citedItems.length})
+                      </span>
+                      <span className="text-2xs text-slate-400 group-open:rotate-180 transition-transform">
+                        ▾
+                      </span>
+                    </summary>
+                    <div className="grid grid-cols-1 gap-2 mt-2.5">
                       {msg.citedItems.map((cite, i) => (
                         <div
                           key={cite.id || i}
@@ -208,7 +241,7 @@ export default function AskLoopPage() {
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </details>
                 )}
               </div>
 

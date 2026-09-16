@@ -5,6 +5,7 @@ import Link from "next/link";
 import Analytics from "@/components/dashboard/Analytics";
 import VocReportCard from "@/components/dashboard/VocReportCard";
 import ExportPdfButton from "@/components/dashboard/ExportPdfButton";
+import ClearDataModal from "@/components/ClearDataModal";
 import {
   LayoutDashboard,
   Sparkles,
@@ -37,6 +38,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [showClearModal, setShowClearModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const loadDashboardData = async () => {
@@ -94,16 +96,18 @@ export default function DashboardPage() {
     }
   };
 
-  const handleClearData = async () => {
-    if (!confirm("Are you sure you want to clear all feedback in this workspace? This will reset all counts and charts to 0.")) {
-      return;
-    }
+  const handleClearData = () => {
+    setShowClearModal(true);
+  };
+
+  const handleConfirmClear = async () => {
     setClearing(true);
     try {
       const res = await fetch("/api/feedback?clearAll=true", { method: "DELETE" });
       const data = await res.json();
       if (res.ok && data.success) {
         toast.success(data.message || "All feedback cleared successfully.");
+        setShowClearModal(false);
         loadDashboardData();
       } else {
         toast.error(data.error || "Failed to clear feedback");
@@ -281,6 +285,13 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      <ClearDataModal
+        isOpen={showClearModal}
+        onClose={() => setShowClearModal(false)}
+        onConfirm={handleConfirmClear}
+        loading={clearing}
+      />
     </div>
   );
 }

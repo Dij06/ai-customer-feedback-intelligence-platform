@@ -174,3 +174,56 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'Failed to generate report' }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const context = await getWorkspaceContext(req);
+    if (!context) {
+      return unauthorizedResponse();
+    }
+
+    if (!canIngestFeedback(context.userRole)) {
+      return forbiddenResponse('Viewers do not have permission to delete reports.');
+    }
+
+    const { searchParams } = new URL(req.url);
+    let id = searchParams.get('id');
+
+    if (!id) {
+      try {
+        const body = await req.json();
+        id = body?.id;
+      } catch {
+        // body not present
+      }
+    }
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'Missing report ID to delete' }, { status: 400 });
+    }
+
+    const existingReport = await prisma.report.findFirst({
+      where: {
+        id,
+        workspaceId: context.workspaceId,
+      },
+    });
+
+    if (!existingReport) {
+      return NextResponse.json({ success: false, error: 'Report not found' }, { status: 404 });
+    }
+
+    await prisma.report.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: 'Report deleted successfully',
+      id,
+    });
+  } catch (error) {
+    console.error('Error deleting report:', error);
+    return NextResponse.json({ success: false, error: 'Failed to delete report' }, { status: 500 });
+  }
+}

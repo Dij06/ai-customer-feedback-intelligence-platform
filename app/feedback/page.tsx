@@ -17,6 +17,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import ClearDataModal from "@/components/ClearDataModal";
 
 interface FeedbackItem {
   id: string;
@@ -56,6 +57,7 @@ export default function FeedbackInboxPage() {
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [showClearModal, setShowClearModal] = useState(false);
 
   // Filters
   const [search, setSearch] = useState("");
@@ -131,16 +133,14 @@ export default function FeedbackInboxPage() {
   };
 
   // Clear all feedbacks in workspace
-  const handleClearData = async () => {
-    if (!confirm("Are you sure you want to clear all feedback in this workspace? This will reset all counts to 0.")) {
-      return;
-    }
+  const handleConfirmClear = async () => {
     setClearing(true);
     try {
       const res = await fetch("/api/feedback?clearAll=true", { method: "DELETE" });
       const data = await res.json();
       if (res.ok && data.success) {
         toast.success(data.message || "All feedback items cleared.");
+        setShowClearModal(false);
         loadFeedbacks();
       } else {
         toast.error(data.error || "Failed to clear feedback");
@@ -237,7 +237,7 @@ export default function FeedbackInboxPage() {
         {/* Action Buttons */}
         <div className="flex items-center gap-2 flex-wrap shrink-0">
           <button
-            onClick={handleClearData}
+            onClick={() => setShowClearModal(true)}
             disabled={seeding || clearing}
             className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-semibold text-rose-600 dark:text-rose-400 bg-white dark:bg-rose-950/20 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-800/40 transition-colors shadow-2xs disabled:opacity-40"
             title="Reset this workspace to 0 feedbacks"
@@ -495,6 +495,13 @@ export default function FeedbackInboxPage() {
           ))
         )}
       </div>
+
+      <ClearDataModal
+        isOpen={showClearModal}
+        onClose={() => setShowClearModal(false)}
+        onConfirm={handleConfirmClear}
+        loading={clearing}
+      />
     </div>
   );
 }

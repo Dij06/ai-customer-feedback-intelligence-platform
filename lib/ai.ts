@@ -180,7 +180,7 @@ export async function analyzeFeedbackWithLLM(
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
+          model: process.env.GROQ_MODEL || 'openai/gpt-oss-20b',
           messages: [
             {
               role: 'system',
@@ -485,7 +485,7 @@ Question: "${question}"`;
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
+          model: process.env.GROQ_MODEL || 'openai/gpt-oss-20b',
           messages: [
             { role: 'system', content: 'You are Ask LOOP, a helpful feedback assistant.' },
             { role: 'user', content: qaPrompt },
@@ -676,7 +676,7 @@ ${quotesContext || 'No feedback entries recorded.'}`;
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
+          model: process.env.GROQ_MODEL || 'openai/gpt-oss-20b',
           messages: [
             { role: 'system', content: 'You are an executive product intelligence assistant. Return strictly valid JSON.' },
             { role: 'user', content: reportPrompt },

@@ -9,12 +9,15 @@ function getGroqClient() {
   return new Groq({ apiKey });
 }
 
-// Active Groq models in 2026
+// Active Groq production models
 const MODELS = [
   process.env.GROQ_MODEL,
   "openai/gpt-oss-20b",
+  "qwen/qwen3.8-27b",
   "openai/gpt-oss-120b",
-  "qwen/qwen3.6-27b",
+  "groq/compound-mini",
+  "llama-3.3-70b-versatile",
+  "llama-3.1-8b-instant",
 ].filter(Boolean) as string[];
 
 async function getGroqCompletion(prompt: string) {
@@ -119,4 +122,9 @@ Only return valid JSON without markdown text or surrounding quotes.`;
       { status: 500 }
     );
   }
+}
+
+export async function POST(req: Request) {
+  const { POST: askLoopHandler } = await import("@/app/api/ask-loop/route");
+  return askLoopHandler(req);
 }
