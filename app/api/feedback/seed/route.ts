@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateFullSeedDataset } from "@/lib/seed-data";
-import { getWorkspaceContext, unauthorizedResponse } from "@/lib/rbac";
+import { getWorkspaceContext, unauthorizedResponse, forbiddenResponse } from "@/lib/rbac";
 import { generateLocalSemanticEmbedding } from "@/lib/embeddings";
 import crypto from "crypto";
 
@@ -21,6 +21,10 @@ export async function POST(req: NextRequest) {
     const context = await getWorkspaceContext(req);
     if (!context) {
       return unauthorizedResponse("Please sign in to seed feedback data.");
+    }
+
+    if (context.userRole !== "ADMIN") {
+      return forbiddenResponse("Only Admins can seed or reset workspace data.");
     }
 
     const activeWorkspace = await prisma.workspace.findUnique({

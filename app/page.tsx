@@ -55,7 +55,7 @@ export default async function Home() {
         <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 transition">
           <div className="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-2">Clustering</div>
           <h2 className="text-lg font-bold text-white mb-2">Customer Trends</h2>
-          <p className="text-sm text-slate-400">Auto-cluster customer feedback into themes with xAI Grok intelligence processing.</p>
+          <p className="text-sm text-slate-400">Auto-cluster customer feedback into themes with Groq AI intelligence processing.</p>
           <Link href="/trends" className="text-xs font-semibold text-purple-400 hover:underline inline-block mt-4">
             View Trends &rarr;
           </Link>

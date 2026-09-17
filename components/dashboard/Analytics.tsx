@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   AreaChart,
   Area,
@@ -19,6 +19,8 @@ interface AnalyticsProps {
 
 export default function Analytics({ workspaceId }: AnalyticsProps) {
   const [totalVolume, setTotalVolume] = useState(0);
+  const [feedbacksList, setFeedbacksList] = useState<any[]>([]);
+  const [timelineRange, setTimelineRange] = useState<7 | 30>(7);
   const [sentimentCounts, setSentimentCounts] = useState({
     positive: 0,
     neutral: 0,
@@ -27,21 +29,21 @@ export default function Analytics({ workspaceId }: AnalyticsProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!workspaceId) return;
     async function fetchStats() {
       try {
         setLoading(true);
-        const url = workspaceId 
-          ? `/api/feedback?workspaceId=${workspaceId}` 
-          : `/api/feedback`;
+        const url = `/api/feedback?workspaceId=${workspaceId}`;
         
         const res = await fetch(url);
         if (res.ok) {
           const feedbacks = await res.json();
-          
-          setTotalVolume(feedbacks.length);
+          const items = Array.isArray(feedbacks) ? feedbacks : feedbacks.feedbacks || [];
+          setFeedbacksList(items);
+          setTotalVolume(items.length);
 
           let pos = 0, neu = 0, neg = 0;
-          feedbacks.forEach((fb: { sentiment?: string }) => {
+          items.forEach((fb: { sentiment?: string }) => {
             const s = (fb.sentiment || "").toUpperCase();
             if (s === "POSITIVE") pos++;
             else if (s === "NEGATIVE") neg++;
@@ -71,15 +73,44 @@ export default function Analytics({ workspaceId }: AnalyticsProps) {
     { name: "Negative", value: negPercent, color: "#EC4899" },
   ];
 
-  const volumeData = [
-    { day: "Mon", count: Math.round(totalVolume * 0.1) },
-    { day: "Tue", count: Math.round(totalVolume * 0.2) },
-    { day: "Wed", count: Math.round(totalVolume * 0.15) },
-    { day: "Thu", count: Math.round(totalVolume * 0.3) },
-    { day: "Fri", count: Math.round(totalVolume * 0.25) },
-    { day: "Sat", count: Math.round(totalVolume * 0.05) },
-    { day: "Sun", count: Math.round(totalVolume * 0.05) },
-  ];
+  // Calculate real timestamp-based daily volume timeline
+  const volumeData = useMemo(() => {
+    const days: { day: string; dateLabel: string; count: number; positive: number; negative: number }[] = [];
+    const now = new Date();
+
+    for (let i = timelineRange - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(now.getDate() - i);
+      const dateStr = d.toISOString().slice(0, 10);
+      const dayName = d.toLocaleDateString("en-US", { weekday: "short" });
+      const monthDay = `${d.getMonth() + 1}/${d.getDate()}`;
+
+      let count = 0;
+      let pos = 0;
+      let neg = 0;
+
+      feedbacksList.forEach((fb) => {
+        if (!fb.createdAt) return;
+        const fbDate = new Date(fb.createdAt).toISOString().slice(0, 10);
+        if (fbDate === dateStr) {
+          count++;
+          const s = (fb.sentiment || "").toUpperCase();
+          if (s === "POSITIVE") pos++;
+          else if (s === "NEGATIVE") neg++;
+        }
+      });
+
+      days.push({
+        day: timelineRange === 7 ? `${dayName} ${monthDay}` : monthDay,
+        dateLabel: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        count,
+        positive: pos,
+        negative: neg,
+      });
+    }
+
+    return days;
+  }, [feedbacksList, timelineRange]);
 
   return (
     <div className="bg-[#0B0F19] text-white p-4 sm:p-6 rounded-2xl space-y-6 border border-slate-800 shadow-2xl overflow-hidden">
@@ -137,14 +168,40 @@ export default function Analytics({ workspaceId }: AnalyticsProps) {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 bg-[#111827] border border-slate-800/80 p-4 sm:p-5 rounded-xl space-y-4 min-w-0">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-wrap justify-between items-center gap-2">
               <div>
                 <h4 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-200">Feedback Volume Velocity</h4>
-                <p className="text-[10px] sm:text-xs text-slate-500">Ingested customer items timeline</p>
+                <p className="text-[10px] sm:text-xs text-slate-500">Real daily customer activity timeline</p>
               </div>
-              <span className="text-[10px] sm:text-xs font-semibold text-slate-400 bg-slate-800/50 px-2.5 sm:px-3 py-1 rounded-md border border-slate-700/50">
-                Total: {totalVolume}
-              </span>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center bg-slate-900 rounded-lg p-0.5 border border-slate-800 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setTimelineRange(7)}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition cursor-pointer ${
+                      timelineRange === 7
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    Last 7 Days
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTimelineRange(30)}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition cursor-pointer ${
+                      timelineRange === 30
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    Last 30 Days
+                  </button>
+                </div>
+                <span className="text-[10px] sm:text-xs font-semibold text-slate-400 bg-slate-800/50 px-2.5 sm:px-3 py-1 rounded-md border border-slate-700/50">
+                  Total: {totalVolume}
+                </span>
+              </div>
             </div>
 
             <div className="h-52 sm:h-64 w-full min-w-0">
@@ -155,9 +212,13 @@ export default function Analytics({ workspaceId }: AnalyticsProps) {
                     <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.4} />
                     <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.0} />
                   </linearGradient>
+                  <linearGradient id="colorNeg" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#EF4444" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#EF4444" stopOpacity={0.0} />
+                  </linearGradient>
                 </defs>
-                <XAxis dataKey="day" stroke="#64748B" fontSize={12} tickLine={false} />
-                <YAxis hide />
+                <XAxis dataKey="day" stroke="#64748B" fontSize={11} tickLine={false} />
+                <YAxis allowDecimals={false} stroke="#64748B" fontSize={11} width={28} />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: "#1E293B",
@@ -169,10 +230,20 @@ export default function Analytics({ workspaceId }: AnalyticsProps) {
                 <Area
                   type="monotone"
                   dataKey="count"
+                  name="Total Feedback"
                   stroke="#3B82F6"
-                  strokeWidth={3}
+                  strokeWidth={2.5}
                   fillOpacity={1}
                   fill="url(#colorCount)"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="negative"
+                  name="Negative Issues"
+                  stroke="#EF4444"
+                  strokeWidth={2}
+                  fillOpacity={1}
+                  fill="url(#colorNeg)"
                 />
               </AreaChart>
             </ResponsiveContainer>

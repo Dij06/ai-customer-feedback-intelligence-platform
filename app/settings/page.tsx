@@ -55,10 +55,13 @@ export default function SettingsPage() {
   const [inviteRole, setInviteRole] = useState<"ADMIN" | "ANALYST" | "VIEWER">("VIEWER");
   const [inviting, setInviting] = useState(false);
 
+  // Member Deletion State (in-app modal)
+  const [memberToRemove, setMemberToRemove] = useState<string | null>(null);
+  const [removingMember, setRemovingMember] = useState(false);
+
   // AI Configuration State
-  const [aiProvider, setAiProvider] = useState("grok");
+  const [aiProvider, setAiProvider] = useState("groq");
   const [autoTriage, setAutoTriage] = useState(true);
-  const [savingAi, setSavingAi] = useState(false);
 
   // Fetch initial profile & workspace context
   useEffect(() => {
@@ -85,6 +88,12 @@ export default function SettingsPage() {
             setMembers(memData.members || []);
           }
         }
+
+        // Load AI Preferences from Local Storage
+        const savedAi = localStorage.getItem("loop_ai_provider");
+        if (savedAi) setAiProvider(savedAi);
+        const savedAuto = localStorage.getItem("loop_auto_triage");
+        if (savedAuto !== null) setAutoTriage(savedAuto === "true");
       } catch (err) {
         console.error("Error loading settings:", err);
       } finally {
@@ -95,7 +104,7 @@ export default function SettingsPage() {
     if (isLoaded) {
       loadData();
     }
-  }, [isLoaded, user]);
+  }, [isLoaded, user?.id]);
 
   // Save Profile Handler
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -183,22 +192,36 @@ export default function SettingsPage() {
     }
   };
 
-  // Remove Member
-  const handleRemoveMember = async (membershipId: string) => {
-    if (!confirm("Are you sure you want to remove this member?")) return;
+  // Remove Member Confirm Handler
+  const handleConfirmRemoveMember = async () => {
+    if (!memberToRemove) return;
+    setRemovingMember(true);
     try {
-      const res = await fetch(`/api/workspace/members?membershipId=${membershipId}`, {
+      const res = await fetch(`/api/workspace/members?membershipId=${memberToRemove}`, {
         method: "DELETE",
       });
       const data = await res.json();
       if (res.ok && data.success) {
         toast.success("Member removed");
-        setMembers((prev) => prev.filter((m) => m.membershipId !== membershipId));
+        setMembers((prev) => prev.filter((m) => m.membershipId !== memberToRemove));
+        setMemberToRemove(null);
       } else {
         toast.error(data.error || "Failed to remove member");
       }
     } catch (err) {
       toast.error("Error removing member");
+    } finally {
+      setRemovingMember(false);
+    }
+  };
+
+  const handleSaveAi = () => {
+    try {
+      localStorage.setItem("loop_ai_provider", aiProvider);
+      localStorage.setItem("loop_auto_triage", String(autoTriage));
+      toast.success("AI preferences saved successfully!");
+    } catch {
+      toast.error("Failed to save AI preferences");
     }
   };
 
@@ -214,10 +237,10 @@ export default function SettingsPage() {
           </div>
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              Settings & Preferences
+              Settings &amp; Preferences
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-              Manage your profile, optional contact info, workspace tenancy, team members, and AI engine settings.
+              Manage your profile, workspace tenancy, team members, and AI engine settings.
             </p>
           </div>
         </div>
@@ -258,7 +281,7 @@ export default function SettingsPage() {
           }`}
         >
           <Users className="w-4 h-4" />
-          <span>Team & Roles ({members.length})</span>
+          <span>Team &amp; Roles ({members.length})</span>
         </button>
 
         <button
@@ -274,7 +297,7 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      {/* Tab 1: Profile Information (with optional phone number) */}
+      {/* Tab 1: Profile Information */}
       {activeTab === "profile" && (
         <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-slate-900/60 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-6">
           <div>
@@ -293,18 +316,16 @@ export default function SettingsPage() {
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                 Full Name
               </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="e.g. Alex Morgan"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+              <input
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="e.g. Alex Morgan"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+              />
             </div>
 
-            {/* Email (Clerk Authenticated) */}
+            {/* Email */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
                 <span>Email Address</span>
@@ -312,14 +333,12 @@ export default function SettingsPage() {
                   <CheckCircle2 className="w-3 h-3" /> Verified by Clerk
                 </span>
               </label>
-              <div className="relative">
-                <input
-                  type="email"
-                  disabled
-                  value={user?.primaryEmailAddress?.emailAddress || ""}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900/50 text-slate-500 text-sm cursor-not-allowed"
-                />
-              </div>
+              <input
+                type="email"
+                disabled
+                value={user?.primaryEmailAddress?.emailAddress || ""}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900/50 text-slate-500 text-sm cursor-not-allowed"
+              />
             </div>
 
             {/* Phone Number (Optional) */}
@@ -343,12 +362,12 @@ export default function SettingsPage() {
               </p>
             </div>
 
-            {/* Job Title / Department (Optional) */}
+            {/* Job Title / Department */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
                   <Briefcase className="w-3.5 h-3.5 text-purple-500" />
-                  Job Title / Department
+                  Department / Role
                 </span>
                 <span className="text-[10px] text-slate-400 font-medium">(Optional)</span>
               </label>
@@ -356,20 +375,19 @@ export default function SettingsPage() {
                 type="text"
                 value={department}
                 onChange={(e) => setDepartment(e.target.value)}
-                placeholder="e.g. Product Manager, Customer Success Lead"
+                placeholder="e.g. Product Engineering, CX Operations, Support"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
-            {/* Save Button */}
-            <div className="pt-3">
+            <div className="pt-2">
               <button
                 type="submit"
                 disabled={savingProfile}
-                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-md shadow-blue-600/25 transition-all flex items-center gap-2 hover:scale-102"
+                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-md shadow-blue-600/25 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 <Save className="w-4 h-4" />
-                <span>{savingProfile ? "Saving Profile..." : "Save Profile"}</span>
+                <span>{savingProfile ? "Saving..." : "Save Profile"}</span>
               </button>
             </div>
           </form>
@@ -381,167 +399,172 @@ export default function SettingsPage() {
         <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-slate-900/60 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-6">
           <div>
             <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-indigo-500" />
-              Workspace Organization & Tenancy
+              <Building2 className="w-5 h-5 text-blue-500" />
+              Workspace Details
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Review workspace tenancy details and tenant isolation configuration.
+              Strict multi-tenant organization context. All customer feedback is scoped to this workspace.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
             <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Workspace Name</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Workspace Name</span>
               <p className="text-base font-bold text-slate-900 dark:text-white">
-                {workspace?.name || "Default Workspace"}
+                {workspace?.name || "Loop Default Workspace"}
               </p>
             </div>
 
             <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Workspace Slug</span>
-              <p className="text-base font-mono text-blue-600 dark:text-blue-400 font-bold">
-                {workspace?.slug || "workspace-default"}
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Slug Identifier</span>
+              <p className="text-base font-mono text-slate-600 dark:text-slate-400">
+                {workspace?.slug || "default"}
               </p>
             </div>
 
             <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Your Assigned Role</span>
-              <p className="text-sm font-bold text-purple-600 dark:text-purple-400">
-                {currentRole}
-              </p>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Your Permission Role</span>
+              <div className="pt-0.5">
+                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                  {currentRole}
+                </span>
+              </div>
             </div>
 
             <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Isolation Policy</span>
-              <p className="text-sm font-semibold text-emerald-500 flex items-center gap-1.5">
-                <Shield className="w-4 h-4" /> Strict PostgreSQL RLS
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Tenant Isolation</span>
+              <p className="text-xs text-emerald-500 font-semibold flex items-center gap-1 mt-1">
+                <Shield className="w-3.5 h-3.5" /> Enforced at Database Level
               </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Tab 3: Team Members & RBAC */}
+      {/* Tab 3: Team Members */}
       {activeTab === "team" && (
-        <div className="space-y-6">
+        <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-slate-900/60 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-6">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Users className="w-5 h-5 text-blue-500" />
+              Team Members &amp; RBAC Roles
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Control which teammates can view, triage, or delete customer intelligence data.
+            </p>
+          </div>
+
           {/* Invite Form (Admin Only) */}
           {isAdmin && (
-            <div className="p-6 rounded-2xl bg-white dark:bg-slate-900/60 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-4">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <form onSubmit={handleInviteMember} className="p-4 sm:p-5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                 <UserPlus className="w-4 h-4 text-blue-500" />
-                Invite Workspace Member
+                Invite Team Member
               </h3>
-              <form onSubmit={handleInviteMember} className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <input
                   type="email"
+                  required
+                  placeholder="colleague@company.com"
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
-                  placeholder="colleague@company.com"
-                  className="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                  className="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                 />
                 <input
                   type="text"
+                  placeholder="Colleague Name (optional)"
                   value={inviteName}
                   onChange={(e) => setInviteName(e.target.value)}
-                  placeholder="Full Name (optional)"
-                  className="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                  className="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                 />
-                <select
-                  value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value as any)}
-                  className="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="VIEWER">Viewer (Read-only)</option>
-                  <option value="ANALYST">Analyst (Ingest & Triage)</option>
-                  <option value="ADMIN">Admin (Full Access)</option>
-                </select>
-                <button
-                  type="submit"
-                  disabled={inviting}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-xs transition-all"
-                >
-                  {inviting ? "Inviting..." : "Add Member"}
-                </button>
-              </form>
-            </div>
+                <div className="flex gap-2">
+                  <select
+                    value={inviteRole}
+                    onChange={(e) => setInviteRole(e.target.value as any)}
+                    className="flex-1 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white focus:outline-hidden"
+                  >
+                    <option value="ANALYST">Analyst (Triage &amp; View)</option>
+                    <option value="ADMIN">Admin (Full Control)</option>
+                    <option value="VIEWER">Viewer (Read Only)</option>
+                  </select>
+                  <button
+                    type="submit"
+                    disabled={inviting}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    {inviting ? "Inviting..." : "Add"}
+                  </button>
+                </div>
+              </div>
+            </form>
           )}
 
           {/* Members Table */}
-          <div className="p-6 rounded-2xl bg-white dark:bg-slate-900/60 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-4">
-            <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center justify-between">
-              <span>Active Workspace Members</span>
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                {members.length} members
-              </span>
-            </h3>
+          <div className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+            {members.map((m) => (
+              <div key={m.membershipId} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-xs">
+                    {(m.name || m.email).charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <span>{m.name || m.email.split("@")[0]}</span>
+                      {m.email === user?.primaryEmailAddress?.emailAddress && (
+                        <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded-md">You</span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
+                      <Mail className="w-3 h-3" />
+                      <span>{m.email}</span>
+                    </div>
+                  </div>
+                </div>
 
-            {loadingMembers ? (
-              <div className="py-8 text-center text-sm text-slate-500">Loading team members...</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 dark:border-slate-800 text-xs text-slate-400 font-bold uppercase tracking-wider">
-                      <th className="pb-3">Member</th>
-                      <th className="pb-3">Role</th>
-                      {isAdmin && <th className="pb-3 text-right">Actions</th>}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                    {members.map((m) => (
-                      <tr key={m.membershipId} className="group">
-                        <td className="py-3.5">
-                          <div className="font-semibold text-slate-900 dark:text-white">{m.name}</div>
-                          <div className="text-xs text-slate-400">{m.email}</div>
-                        </td>
-                        <td className="py-3.5">
-                          {isAdmin ? (
-                            <select
-                              value={m.role}
-                              onChange={(e) => handleUpdateRole(m.membershipId, e.target.value)}
-                              className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-semibold focus:outline-hidden"
-                            >
-                              <option value="ADMIN">ADMIN</option>
-                              <option value="ANALYST">ANALYST</option>
-                              <option value="VIEWER">VIEWER</option>
-                            </select>
-                          ) : (
-                            <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                              {m.role}
-                            </span>
-                          )}
-                        </td>
-                        {isAdmin && (
-                          <td className="py-3.5 text-right">
-                            <button
-                              onClick={() => handleRemoveMember(m.membershipId)}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
-                              title="Remove member"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="flex items-center gap-2">
+                  {isAdmin ? (
+                    <select
+                      value={m.role}
+                      onChange={(e) => handleUpdateRole(m.membershipId, e.target.value)}
+                      className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs text-slate-700 dark:text-slate-300 focus:outline-hidden"
+                    >
+                      <option value="ADMIN">ADMIN</option>
+                      <option value="ANALYST">ANALYST</option>
+                      <option value="VIEWER">VIEWER</option>
+                    </select>
+                  ) : (
+                    <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                      {m.role}
+                    </span>
+                  )}
+
+                  {isAdmin && m.email !== user?.primaryEmailAddress?.emailAddress && (
+                    <button
+                      type="button"
+                      onClick={() => setMemberToRemove(m.membershipId)}
+                      className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors"
+                      title="Remove member"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
               </div>
-            )}
+            ))}
           </div>
         </div>
       )}
 
-      {/* Tab 4: AI Engine Configuration */}
+      {/* Tab 4: AI Engine */}
       {activeTab === "ai" && (
         <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-slate-900/60 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-6">
           <div>
             <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-purple-500" />
-              AI Model & Inference Settings
+              AI Intelligence Engine Configuration
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Configure the AI backend for sentiment scoring, topic clustering, and Ask Loop chat.
+              Customize natural language models and auto-classification behavior for sentiment and themes.
             </p>
           </div>
 
@@ -550,19 +573,7 @@ export default function SettingsPage() {
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                 Primary Intelligence Provider
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div
-                  onClick={() => setAiProvider("grok")}
-                  className={`p-4 rounded-xl border cursor-pointer transition-all ${
-                    aiProvider === "grok"
-                      ? "bg-blue-500/10 border-blue-500 text-blue-400 ring-2 ring-blue-500/20"
-                      : "bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400"
-                  }`}
-                >
-                  <div className="font-bold text-sm">xAI Grok</div>
-                  <div className="text-[11px] text-slate-400 mt-1">Grok 2 Latest (Primary Engine)</div>
-                </div>
-
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div
                   onClick={() => setAiProvider("groq")}
                   className={`p-4 rounded-xl border cursor-pointer transition-all ${
@@ -571,8 +582,8 @@ export default function SettingsPage() {
                       : "bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400"
                   }`}
                 >
-                  <div className="font-bold text-sm">Groq Cloud</div>
-                  <div className="text-[11px] text-slate-400 mt-1">Ultra-fast Llama 3.3 70B & 8B</div>
+                  <div className="font-bold text-sm">Groq Cloud AI (Active)</div>
+                  <div className="text-[11px] text-slate-400 mt-1">High-speed inference via Llama 3.3 70B &amp; GPT-OSS</div>
                 </div>
 
                 <div
@@ -583,8 +594,8 @@ export default function SettingsPage() {
                       : "bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400"
                   }`}
                 >
-                  <div className="font-bold text-sm">Hybrid Offline</div>
-                  <div className="text-[11px] text-slate-400 mt-1">Local Heuristic NLP</div>
+                  <div className="font-bold text-sm">Offline Fallback</div>
+                  <div className="text-[11px] text-slate-400 mt-1">Built-in heuristic NLP when network is unavailable</div>
                 </div>
               </div>
             </div>
@@ -608,8 +619,9 @@ export default function SettingsPage() {
 
             <div className="pt-3">
               <button
-                onClick={() => toast.success("AI preferences updated successfully")}
-                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-md shadow-blue-600/25 transition-all flex items-center gap-2"
+                type="button"
+                onClick={handleSaveAi}
+                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-md shadow-blue-600/25 transition-all flex items-center gap-2 cursor-pointer"
               >
                 <Save className="w-4 h-4" />
                 <span>Save AI Preferences</span>
@@ -618,7 +630,45 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
+
+      {/* Member Deletion In-App Confirmation Modal */}
+      {memberToRemove && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-500">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Remove Teammate</h3>
+                <p className="text-xs text-slate-500">Revoke workspace access</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              Are you sure you want to remove this member from the workspace? They will immediately lose access to feedback records and analytics.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setMemberToRemove(null)}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={removingMember}
+                onClick={handleConfirmRemoveMember}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-rose-600 hover:bg-rose-500 transition disabled:opacity-50 cursor-pointer"
+              >
+                {removingMember ? "Removing..." : "Remove Teammate"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-

@@ -1,4 +1,4 @@
-﻿# Dependencies
+# Dependencies
 node_modules/
 /.pnp
 .pnp.*
@@ -18,13 +18,11 @@ dist/
 *.db-journal
 *.sqlite
 
-# IDE & AI Assistant caches
-.claude/
-.windsurf/
-.agents/
-skills-lock.json
+# IDE & Editor
 .vscode/
 .idea/
+*.swp
+*.swo
 
 # OS & Logs
 .DS_Store

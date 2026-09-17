@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
+import { X } from 'lucide-react';
 
 interface Member {
   membershipId: string;
@@ -17,7 +18,7 @@ export default function WorkspaceMembersPage() {
 
   const [members, setMembers] = useState<Member[]>([]);
   const [workspace, setWorkspace] = useState<{ id: string; name: string; slug: string } | null>(null);
-  const [currentRole, setCurrentRole] = useState<'ADMIN' | 'ANALYST' | 'VIEWER'>('ADMIN');
+  const [currentRole, setCurrentRole] = useState<'ADMIN' | 'ANALYST' | 'VIEWER'>('VIEWER');
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [currentUserEmail, setCurrentUserEmail] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -41,6 +42,10 @@ export default function WorkspaceMembersPage() {
   const [inviteName, setInviteName] = useState('');
   const [inviteRole, setInviteRole] = useState<'ADMIN' | 'ANALYST' | 'VIEWER'>('ANALYST');
   const [inviting, setInviting] = useState(false);
+
+  // Remove member modal state
+  const [memberToRemove, setMemberToRemove] = useState<{ membershipId: string; email: string } | null>(null);
+  const [removing, setRemoving] = useState(false);
 
   const fetchMembers = useCallback(async () => {
     setLoading(true);
@@ -120,13 +125,18 @@ export default function WorkspaceMembersPage() {
     }
   };
 
-  const handleRemoveMember = async (membershipId: string, email: string, role?: string) => {
+  const handleInitiateRemove = (membershipId: string, email: string, role?: string) => {
     if (role === 'ADMIN') {
       setError(`Admin accounts cannot be removed directly. Please demote ${email} to an Analyst or Viewer role before removing.`);
       return;
     }
+    setMemberToRemove({ membershipId, email });
+  };
 
-    if (!confirm(`Are you sure you want to remove ${email} from this workspace?`)) return;
+  const handleConfirmRemove = async () => {
+    if (!memberToRemove) return;
+    const { membershipId, email } = memberToRemove;
+    setRemoving(true);
     setError('');
     setSuccessMsg('');
     try {
@@ -137,12 +147,15 @@ export default function WorkspaceMembersPage() {
       if (res.ok && data.success) {
         setSuccessMsg(`Removed ${email} from workspace`);
         setMembers((prev) => prev.filter((m) => m.membershipId !== membershipId));
+        setMemberToRemove(null);
       } else {
         setError(data.error || 'Permission Denied: 403 Forbidden');
       }
     } catch (err) {
       console.error(err);
       setError('Error communicating with server');
+    } finally {
+      setRemoving(false);
     }
   };
 
@@ -238,7 +251,7 @@ export default function WorkspaceMembersPage() {
             </svg>
             <span>{error}</span>
           </div>
-          <button onClick={() => setError('')} className="text-rose-500 hover:text-rose-800 dark:hover:text-white text-sm">✕</button>
+          <button onClick={() => setError('')} className="text-rose-500 hover:text-rose-800 dark:hover:text-white p-1 rounded-md" aria-label="Dismiss error"><X className="w-4 h-4" /></button>
         </div>
       )}
       {successMsg && (
@@ -249,7 +262,7 @@ export default function WorkspaceMembersPage() {
             </svg>
             <span>{successMsg}</span>
           </div>
-          <button onClick={() => setSuccessMsg('')} className="text-emerald-500 hover:text-emerald-800 dark:hover:text-white text-sm">✕</button>
+          <button onClick={() => setSuccessMsg('')} className="text-emerald-500 hover:text-emerald-800 dark:hover:text-white p-1 rounded-md" aria-label="Dismiss message"><X className="w-4 h-4" /></button>
         </div>
       )}
 
@@ -354,7 +367,7 @@ export default function WorkspaceMembersPage() {
                           </span>
                         ) : currentRole === 'ADMIN' ? (
                           <button
-                            onClick={() => handleRemoveMember(member.membershipId, member.email, member.role)}
+                            onClick={() => handleInitiateRemove(member.membershipId, member.email, member.role)}
                             className="px-2.5 py-1 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-md transition-all font-semibold cursor-pointer"
                           >
                             Remove
@@ -380,9 +393,10 @@ export default function WorkspaceMembersPage() {
               <h3 className="text-base font-bold text-slate-900 dark:text-white">Invite Teammate to {workspace?.name}</h3>
               <button
                 onClick={() => setShowInviteModal(false)}
-                className="text-slate-400 hover:text-slate-700 dark:hover:text-white"
+                className="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1 rounded-lg"
+                aria-label="Close invite modal"
               >
-                ✕
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -440,6 +454,47 @@ export default function WorkspaceMembersPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Remove Teammate Confirmation Modal */}
+      {memberToRemove && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-500">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Remove Member</h3>
+                <p className="text-xs text-slate-500">Revoke workspace access</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              Are you sure you want to remove <strong className="text-slate-900 dark:text-white">{memberToRemove.email}</strong> from this workspace? They will lose access immediately.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setMemberToRemove(null)}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={removing}
+                onClick={handleConfirmRemove}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-rose-600 hover:bg-rose-500 transition disabled:opacity-50"
+              >
+                {removing ? "Removing..." : "Remove Member"}
+              </button>
+            </div>
           </div>
         </div>
       )}

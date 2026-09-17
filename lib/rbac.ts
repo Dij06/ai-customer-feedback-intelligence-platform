@@ -15,6 +15,22 @@ export interface WorkspaceContext {
   userName: string;
 }
 
+interface CacheEntry {
+  context: WorkspaceContext;
+  expiresAt: number;
+}
+
+// In-memory cache with 5s TTL to deduplicate concurrent API calls on page loads
+const contextCache = new Map<string, CacheEntry>();
+
+export function invalidateWorkspaceContextCache(clerkUserId?: string) {
+  if (clerkUserId) {
+    contextCache.delete(clerkUserId);
+  } else {
+    contextCache.clear();
+  }
+}
+
 // Resolves authenticated user, active workspace, and RBAC role strictly from Clerk session & PostgreSQL database
 export async function getWorkspaceContext(..._args: unknown[]): Promise<WorkspaceContext | null> {
   try {
@@ -24,6 +40,58 @@ export async function getWorkspaceContext(..._args: unknown[]): Promise<Workspac
       return null;
     }
 
+    // Fast-path 1: Check in-memory cache (prevents duplicate queries when 4 APIs fire together)
+    const cached = contextCache.get(clerkUserId);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.context;
+    }
+
+    // Fast-path 2: Single query to fetch user, membership, and active workspace in one DB call
+    let user = await prisma.user.findFirst({
+      where: { clerkUserId },
+      include: {
+        memberships: {
+          include: { workspace: true },
+          orderBy: { role: 'asc' },
+          take: 1,
+        },
+      },
+    });
+
+    let workspace: { id: string; name: string; slug: string };
+    let resolvedRole: UserRole = 'ADMIN';
+
+    if (user && user.memberships && user.memberships.length > 0) {
+      const member = user.memberships[0];
+      workspace = member.workspace;
+      if (member.role === 'ADMIN') {
+        resolvedRole = 'ADMIN';
+      } else if (member.role === 'ANALYST') {
+        resolvedRole = 'ANALYST';
+      } else {
+        resolvedRole = 'VIEWER';
+      }
+
+      const result: WorkspaceContext = {
+        userId: user.id,
+        clerkUserId,
+        workspaceId: workspace.id,
+        workspaceName: workspace.name,
+        workspaceSlug: workspace.slug,
+        userRole: resolvedRole,
+        userEmail: user.email,
+        userName: user.name || user.email.split('@')[0],
+      };
+
+      contextCache.set(clerkUserId, {
+        context: result,
+        expiresAt: Date.now() + 5000,
+      });
+
+      return result;
+    }
+
+    // 3. Fallback for new user signup provisioning or first login:
     const clerkUser = await currentUser();
     if (!clerkUser) {
       return null;
@@ -34,15 +102,20 @@ export async function getWorkspaceContext(..._args: unknown[]): Promise<Workspac
       clerkUser.fullName ||
       (clerkUser.firstName ? `${clerkUser.firstName} ${clerkUser.lastName || ''}`.trim() : primaryEmail.split('@')[0]);
 
-    // 1. Sync or retrieve user from PostgreSQL
-    let user = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { clerkUserId },
-          { email: primaryEmail },
-        ],
-      },
-    });
+    if (!user) {
+      user = await prisma.user.findFirst({
+        where: {
+          OR: [{ clerkUserId }, { email: primaryEmail }],
+        },
+        include: {
+          memberships: {
+            include: { workspace: true },
+            orderBy: { role: 'asc' },
+            take: 1,
+          },
+        },
+      });
+    }
 
     if (!user) {
       user = await prisma.user.create({
@@ -52,59 +125,41 @@ export async function getWorkspaceContext(..._args: unknown[]): Promise<Workspac
           name: displayName,
           role: 'USER',
         },
-      });
-    } else {
-      if (user.clerkUserId !== clerkUserId || user.name !== displayName || user.email !== primaryEmail) {
-        user = await prisma.user.update({
-          where: { id: user.id },
-          data: {
-            clerkUserId,
-            name: displayName,
-            email: primaryEmail,
+        include: {
+          memberships: {
+            include: { workspace: true },
+            orderBy: { role: 'asc' },
+            take: 1,
           },
-        });
-      }
+        },
+      });
+    } else if (!user.clerkUserId) {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { clerkUserId, name: displayName },
+        include: {
+          memberships: {
+            include: { workspace: true },
+            orderBy: { role: 'asc' },
+            take: 1,
+          },
+        },
+      });
     }
 
-    // 2. Resolve active workspace and membership role from database
-    const member = await prisma.workspaceMember.findFirst({
-      where: { userId: user.id },
-      include: { workspace: true },
-      orderBy: { role: 'asc' },
-    });
-
-    let workspace: { id: string; name: string; slug: string };
-    let resolvedRole: UserRole = 'ADMIN';
-
-    if (member && member.workspace) {
+    if (user.memberships && user.memberships.length > 0) {
+      const member = user.memberships[0];
       workspace = member.workspace;
-      if (member.role === 'ADMIN') {
-        resolvedRole = 'ADMIN';
-      } else {
-        // Safety guard: If a workspace has 0 Admins, auto-promote this member to restore governance
-        const adminCount = await prisma.workspaceMember.count({
-          where: { workspaceId: workspace.id, role: 'ADMIN' },
-        });
-        if (adminCount === 0) {
-          await prisma.workspaceMember.update({
-            where: { id: member.id },
-            data: { role: 'ADMIN' },
-          });
-          resolvedRole = 'ADMIN';
-        } else if (member.role === 'ANALYST') {
-          resolvedRole = 'ANALYST';
-        } else {
-          resolvedRole = 'VIEWER';
-        }
-      }
+      resolvedRole = member.role === 'ADMIN' ? 'ADMIN' : member.role === 'ANALYST' ? 'ANALYST' : 'VIEWER';
     } else {
-      // 3. New user signup flow: create a dedicated workspace for this user and make them ADMIN
+      // 4. Create dedicated workspace for newly provisioned user
       const baseName = user.name || displayName || primaryEmail.split('@')[0] || 'My Team';
       const workspaceName = `${baseName}'s Workspace`;
-      const baseSlug = baseName
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '') || 'workspace';
+      const baseSlug =
+        baseName
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '') || 'workspace';
 
       let uniqueSlug = baseSlug;
       let attempt = 1;
@@ -143,7 +198,6 @@ export async function getWorkspaceContext(..._args: unknown[]): Promise<Workspac
         skipDuplicates: true,
       });
 
-      // Assign user as ADMIN of their own new workspace
       const newMembership = await prisma.workspaceMember.create({
         data: {
           userId: user.id,
@@ -157,7 +211,7 @@ export async function getWorkspaceContext(..._args: unknown[]): Promise<Workspac
       resolvedRole = 'ADMIN';
     }
 
-    return {
+    const finalResult: WorkspaceContext = {
       userId: user.id,
       clerkUserId,
       workspaceId: workspace.id,
@@ -167,6 +221,13 @@ export async function getWorkspaceContext(..._args: unknown[]): Promise<Workspac
       userEmail: user.email,
       userName: user.name || user.email.split('@')[0],
     };
+
+    contextCache.set(clerkUserId, {
+      context: finalResult,
+      expiresAt: Date.now() + 5000,
+    });
+
+    return finalResult;
   } catch (error) {
     console.error('Error resolving workspace context from Clerk/DB:', error);
     return null;

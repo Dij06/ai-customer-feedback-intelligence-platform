@@ -10,12 +10,12 @@ function getGroqClient() {
 }
 
 const MODELS = [
-  "openai/gpt-oss-20b",
+  process.env.GROQ_MODEL || "qwen/qwen3.8-27b",
   "qwen/qwen3.8-27b",
-  "openai/gpt-oss-120b",
   "groq/compound-mini",
-  "llama-3.3-70b-versatile",
-  "llama-3.1-8b-instant",
+  "openai/gpt-oss-120b",
+  "groq/compound",
+  "openai/gpt-oss-20b",
 ];
 
 async function getGroqCompletion(prompt: string) {
@@ -55,6 +55,12 @@ async function getGroqCompletion(prompt: string) {
   throw lastErr || new Error("All Groq models failed to respond.");
 }
 
+interface VocCacheEntry {
+  data: any;
+  expiresAt: number;
+}
+const vocCache = new Map<string, VocCacheEntry>();
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -93,6 +99,12 @@ export async function GET(req: Request) {
       });
     }
 
+    const cacheKey = `${workspaceId}:${feedbacks.length}:${feedbacks[0]?.id}`;
+    const cached = vocCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return NextResponse.json(cached.data);
+    }
+
     const total = feedbacks.length;
     const pos = feedbacks.filter((f) => f.sentiment?.toLowerCase() === "positive").length;
     const neg = feedbacks.filter((f) => f.sentiment?.toLowerCase() === "negative").length;
@@ -123,17 +135,20 @@ Only return valid JSON.`;
       const rawContent = response.choices[0]?.message?.content || "{}";
       const parsedData = JSON.parse(rawContent.trim());
 
-      return NextResponse.json({
+      const finalResult = {
         summary: parsedData.summary || "Customer feedback reflects positive engagement with key areas identified for performance optimizations.",
         csatScore: parsedData.csatScore || estimatedCsat,
         keyWins: parsedData.keyWins?.length ? parsedData.keyWins : ["Fast UI response and clean design praised by verified users.", "High satisfaction with dashboard speed."],
         topComplaints: parsedData.topComplaints?.length ? parsedData.topComplaints : ["Intermittent checkout/export latency during peak usage.", "Clarifications requested on pricing tiers."],
         actionItems: parsedData.actionItems?.length ? parsedData.actionItems : ["Optimize database indexing to resolve query bottlenecks.", "Streamline billing documentation on settings page."],
-      });
+      };
+
+      vocCache.set(cacheKey, { data: finalResult, expiresAt: Date.now() + 60000 });
+      return NextResponse.json(finalResult);
     } catch (aiErr) {
       console.warn("AI generation fallback triggered:", aiErr);
       // Heuristic fallback
-      return NextResponse.json({
+      const fallbackResult = {
         summary: `Analysis of ${total} customer feedback records shows ${posPercent}% positive sentiment. Main user discussions focus on platform performance and feature capabilities.`,
         csatScore: estimatedCsat,
         keyWins: [
@@ -148,7 +163,9 @@ Only return valid JSON.`;
           "Address top priority high-urgency bug tickets in Feedback Inbox.",
           "Follow up with enterprise customers on feature requests.",
         ],
-      });
+      };
+      vocCache.set(cacheKey, { data: fallbackResult, expiresAt: Date.now() + 30000 });
+      return NextResponse.json(fallbackResult);
     }
   } catch (error: any) {
     console.error("VoC Report API Error:", error);

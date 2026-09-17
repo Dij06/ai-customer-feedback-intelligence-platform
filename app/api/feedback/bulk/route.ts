@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { getWorkspaceContext } from "@/lib/rbac";
+import { getWorkspaceContext, canIngestFeedback, unauthorizedResponse, forbiddenResponse } from "@/lib/rbac";
 import Groq from "groq-sdk";
 
 export const dynamic = "force-dynamic";
@@ -48,6 +48,9 @@ export async function POST(req: Request) {
 
     // Resolve workspace context
     const context = await getWorkspaceContext(req);
+    if (context && !canIngestFeedback(context.userRole)) {
+      return forbiddenResponse("Viewer role is read-only. Bulk uploading feedback is restricted to Admins and Analysts.");
+    }
     let activeWorkspaceId = workspaceId;
 
     if (!activeWorkspaceId || activeWorkspaceId === "undefined") {
@@ -91,7 +94,7 @@ export async function POST(req: Request) {
 Feedback: "${text}"`,
               },
             ],
-            model: process.env.GROQ_MODEL || "openai/gpt-oss-20b",
+            model: process.env.GROQ_MODEL || "qwen/qwen3.8-27b",
             response_format: { type: "json_object" },
           });
 

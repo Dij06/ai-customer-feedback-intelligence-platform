@@ -49,7 +49,7 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [period, setPeriod] = useState<'7d' | '30d' | '90d'>('30d');
-  const [userRole, setUserRole] = useState<'ADMIN' | 'ANALYST' | 'VIEWER'>('ADMIN');
+  const [userRole, setUserRole] = useState<'ADMIN' | 'ANALYST' | 'VIEWER'>('VIEWER');
   const [reportToDelete, setReportToDelete] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 

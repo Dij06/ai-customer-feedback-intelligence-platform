@@ -4,13 +4,14 @@ import { getWorkspaceContext } from '@/lib/rbac';
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    let workspaceId = searchParams.get('workspaceId');
+    const context = await getWorkspaceContext(request);
+    let workspaceId = context?.workspaceId;
 
-    if (!workspaceId || workspaceId === 'undefined') {
-      const context = await getWorkspaceContext(request);
-      if (context) {
-        workspaceId = context.workspaceId;
+    if (!workspaceId) {
+      const { searchParams } = new URL(request.url);
+      const paramWorkspaceId = searchParams.get('workspaceId');
+      if (paramWorkspaceId && paramWorkspaceId !== 'undefined') {
+        workspaceId = paramWorkspaceId;
       }
     }
 

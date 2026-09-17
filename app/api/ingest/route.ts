@@ -14,6 +14,19 @@ export async function POST(req: Request) {
       );
     }
 
+    // Verify workspace exists to avoid unhandled foreign key constraint errors
+    const workspace = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { id: true },
+    });
+
+    if (!workspace) {
+      return NextResponse.json(
+        { error: "Workspace not found" },
+        { status: 404 }
+      );
+    }
+
     // Default system user for external multi-channel feeds
     let systemUser = await prisma.user.findFirst({
       where: { email: "system@ingestion.local" },

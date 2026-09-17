@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getWorkspaceContext, canManageMembers, unauthorizedResponse, forbiddenResponse, UserRole } from '@/lib/rbac';
+import {
+  getWorkspaceContext,
+  canManageMembers,
+  unauthorizedResponse,
+  forbiddenResponse,
+  UserRole,
+  invalidateWorkspaceContextCache,
+} from '@/lib/rbac';
 import { MemberInviteSchema, MemberRoleUpdateSchema } from '@/lib/validations';
 
 export async function GET(req: NextRequest) {
@@ -112,6 +119,8 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    invalidateWorkspaceContextCache();
+
     return NextResponse.json({
       success: true,
       message: `Member ${email} added as ${validatedRole}`,
@@ -188,6 +197,8 @@ export async function PATCH(req: NextRequest) {
       where: { id: membershipId },
       data: { role: newRole as UserRole },
     });
+
+    invalidateWorkspaceContextCache();
 
     return NextResponse.json({
       success: true,
@@ -266,6 +277,8 @@ export async function DELETE(req: NextRequest) {
     await prisma.workspaceMember.delete({
       where: { id: membershipId },
     });
+
+    invalidateWorkspaceContextCache();
 
     return NextResponse.json({
       success: true,

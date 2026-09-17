@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Shield } from 'lucide-react';
 import { analyzeFeedbackWithAI } from '@/lib/ai';
 
 interface RawParsedData {
@@ -21,6 +22,7 @@ interface MappedFeedbackItem {
 
 export default function BulkImportPage() {
   const router = useRouter();
+  const [currentRole, setCurrentRole] = useState<'ADMIN' | 'ANALYST' | 'VIEWER' | null>(null);
   const [parsedData, setParsedData] = useState<RawParsedData | null>(null);
   const [contentCol, setContentCol] = useState<string>('');
   const [sourceCol, setSourceCol] = useState<string>('');
@@ -31,6 +33,23 @@ export default function BulkImportPage() {
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    async function loadRole() {
+      try {
+        const res = await fetch('/api/workspace/members');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.currentRole) setCurrentRole(data.currentRole);
+        }
+      } catch (err) {
+        console.error('Error fetching role:', err);
+      }
+    }
+    loadRole();
+  }, []);
+
+  const isViewer = currentRole === 'VIEWER';
 
   // Helper to detect column names
   const detectColumn = (headers: string[], synonyms: string[]): string => {
@@ -153,40 +172,48 @@ export default function BulkImportPage() {
     setImporting(true);
     setError('');
     setImportSummary(null);
+    setProgress(0);
     let imported = 0;
     let failed = 0;
+    const CHUNK_SIZE = 10;
 
-    for (let i = 0; i < mappedRows.length; i++) {
-      const row = mappedRows[i];
-      try {
-        const res = await fetch('/api/feedback', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            content: row.content,
-            source: row.source,
-            customerName: row.customerName,
-            customerEmail: row.customerEmail,
-          }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && data.success) {
+    for (let i = 0; i < mappedRows.length; i += CHUNK_SIZE) {
+      const chunk = mappedRows.slice(i, i + CHUNK_SIZE);
+      const results = await Promise.allSettled(
+        chunk.map((row) =>
+          fetch('/api/feedback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              content: row.content,
+              source: row.source,
+              customerName: row.customerName,
+              customerEmail: row.customerEmail,
+            }),
+          }).then((res) => {
+            if (res.ok) return true;
+            throw new Error('Import rejected');
+          })
+        )
+      );
+
+      for (const res of results) {
+        if (res.status === 'fulfilled') {
           imported += 1;
         } else {
           failed += 1;
         }
-      } catch (err) {
-        console.error(err);
-        failed += 1;
       }
-      setProgress(Math.round(((i + 1) / mappedRows.length) * 100));
+
+      const processed = Math.min(i + CHUNK_SIZE, mappedRows.length);
+      setProgress(Math.round((processed / mappedRows.length) * 100));
     }
 
     setImporting(false);
     setImportSummary({ imported, failed });
     setTimeout(() => {
       router.push('/feedback');
-    }, 2000);
+    }, 2500);
   };
 
   const downloadSampleCSV = () => {
@@ -235,6 +262,13 @@ export default function BulkImportPage() {
           </button>
         </div>
 
+        {isViewer && (
+          <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs flex items-center gap-2.5">
+            <Shield className="w-4 h-4 shrink-0" />
+            <span className="font-semibold">Viewer Mode (Read-Only): Your role does not have permission to import feedback. Only Admins and Analysts can import CSV data.</span>
+          </div>
+        )}
+
         {error && (
           <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-500/15 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs font-semibold">
             {error}
@@ -242,22 +276,25 @@ export default function BulkImportPage() {
         )}
 
         {/* Upload dropzone */}
-        <div className="p-12 sm:p-14 rounded-2xl bg-white dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 text-center transition-all shadow-xs">
+        <div className={`p-12 sm:p-14 rounded-2xl bg-white dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-700 text-center transition-all shadow-xs ${
+          isViewer ? 'opacity-60 cursor-not-allowed' : 'hover:border-blue-500'
+        }`}>
           <input
             type="file"
             accept=".csv"
             onChange={handleFileUpload}
             id="csvFileInput"
+            disabled={isViewer}
             className="hidden"
           />
-          <label htmlFor="csvFileInput" className="cursor-pointer block">
+          <label htmlFor={isViewer ? undefined : "csvFileInput"} className={`${isViewer ? 'cursor-not-allowed' : 'cursor-pointer'} block`}>
             <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto mb-3 border border-blue-100 dark:border-blue-500/20">
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             </div>
             <span className="text-sm font-bold text-slate-900 dark:text-white block">
-              Click to upload your CSV file
+              {isViewer ? 'CSV Upload Disabled for Viewers' : 'Click to upload your CSV file'}
             </span>
             <span className="text-xs text-slate-500 dark:text-slate-400 block mt-1">
               Works with exports from Zendesk, Intercom, App Store, Typeform, Excel, or Google Sheets.
@@ -361,10 +398,10 @@ export default function BulkImportPage() {
               </span>
               <button
                 onClick={handleImportAll}
-                disabled={importing}
-                className="px-5 py-2 text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-all"
+                disabled={importing || isViewer}
+                className="px-5 py-2 text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {importing ? `Importing (${progress}%)...` : `Import All ${mappedRows.length} Items`}
+                {isViewer ? "Import Restricted (Viewer)" : importing ? `Importing (${progress}%)...` : `Import All ${mappedRows.length} Items`}
               </button>
             </div>
 
@@ -380,11 +417,18 @@ export default function BulkImportPage() {
                   ? 'bg-emerald-50 dark:bg-emerald-500/15 border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
                   : 'bg-amber-50 dark:bg-amber-500/15 border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-300'
               }`}>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold">Import Summary:</span>
-                  <span>{importSummary.imported} rows imported successfully</span>
-                  {importSummary.failed > 0 && <span className="text-rose-600 dark:text-rose-400">({importSummary.failed} failed validation)</span>}
-                  <span className="ml-auto text-slate-500">Redirecting to inbox...</span>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold">Import Summary:</span>
+                    <span>{importSummary.imported} rows imported successfully</span>
+                    {importSummary.failed > 0 && <span className="text-rose-600 dark:text-rose-400">({importSummary.failed} failed)</span>}
+                  </div>
+                  <Link
+                    href="/feedback"
+                    className="px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold transition"
+                  >
+                    View in Inbox &rarr;
+                  </Link>
                 </div>
               </div>
             )}

@@ -16,8 +16,9 @@ export default function VocReportCard({ workspaceId }: { workspaceId?: string })
   const [loading, setLoading] = useState(true);
 
   const fetchVocReport = useCallback(async () => {
+    if (!workspaceId) return;
     try {
-      const res = await fetch(`/api/reports/voc?workspaceId=${workspaceId || ""}`);
+      const res = await fetch(`/api/reports/voc?workspaceId=${workspaceId}`);
       if (res.ok) {
         const data = await res.json();
         setReport(data);

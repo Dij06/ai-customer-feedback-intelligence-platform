@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { getWorkspaceContext, unauthorizedResponse } from "@/lib/rbac";
+import {
+  getWorkspaceContext,
+  unauthorizedResponse,
+  forbiddenResponse,
+  canDeleteFeedback,
+  canIngestFeedback,
+  canTriageFeedback,
+} from "@/lib/rbac";
 import Groq from "groq-sdk";
 
 export async function GET(req: Request) {
@@ -88,8 +95,13 @@ export async function DELETE(req: Request) {
       return unauthorizedResponse("Please sign in to delete feedback.");
     }
 
+    if (!canDeleteFeedback(context.userRole)) {
+      return forbiddenResponse("Only Admins are permitted to delete customer feedback.");
+    }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
+    const idsParam = searchParams.get("ids");
     const clearAll = searchParams.get("clearAll") === "true";
 
     if (clearAll) {
@@ -114,13 +126,35 @@ export async function DELETE(req: Request) {
       });
     }
 
+    if (idsParam) {
+      const ids = idsParam.split(",").map((s) => s.trim()).filter(Boolean);
+      if (ids.length > 0) {
+        await prisma.$transaction([
+          prisma.feedbackTheme.deleteMany({ where: { feedbackId: { in: ids } } }),
+          prisma.embedding.deleteMany({ where: { feedbackId: { in: ids } } }),
+          prisma.feedback.deleteMany({
+            where: { id: { in: ids }, workspaceId: context.workspaceId },
+          }),
+        ]);
+        return NextResponse.json({
+          success: true,
+          message: `Successfully deleted ${ids.length} feedback items`,
+          count: ids.length,
+        });
+      }
+    }
+
     if (!id) {
       return NextResponse.json({ error: "Missing feedback ID to delete" }, { status: 400 });
     }
 
-    await prisma.feedback.delete({
-      where: { id, workspaceId: context.workspaceId },
-    });
+    await prisma.$transaction([
+      prisma.feedbackTheme.deleteMany({ where: { feedbackId: id } }),
+      prisma.embedding.deleteMany({ where: { feedbackId: id } }),
+      prisma.feedback.deleteMany({
+        where: { id, workspaceId: context.workspaceId },
+      }),
+    ]);
 
     return NextResponse.json({ success: true, message: "Feedback deleted successfully" });
   } catch (error: any) {
@@ -132,6 +166,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const {
+      content: bodyContent,
       title,
       description,
       workspaceId,
@@ -140,9 +175,14 @@ export async function POST(req: Request) {
       sentiment: bodySentiment,
       category: bodyCategory,
       urgency: bodyUrgency,
+      customerName,
+      customerEmail,
+      summary: bodySummary,
+      tags: bodyTags,
     } = body;
 
     const rawText =
+      bodyContent ||
       bodyText ||
       (title && description && title !== description
         ? `${title}: ${description}`
@@ -161,6 +201,9 @@ export async function POST(req: Request) {
 
     const context = await getWorkspaceContext(req);
     if (context) {
+      if (!canIngestFeedback(context.userRole)) {
+        return forbiddenResponse("Viewer role is read-only. Ingesting feedback is restricted to Admins and Analysts.");
+      }
       dbWorkspaceId = context.workspaceId;
       dbUserId = context.userId;
     } else if (workspaceId && workspaceId !== "undefined") {
@@ -190,8 +233,9 @@ export async function POST(req: Request) {
     let sentiment = bodySentiment;
     let category = bodyCategory;
     let urgency = bodyUrgency;
+    let summary = bodySummary;
 
-    if (!sentiment || !category || urgency === undefined) {
+    if (!sentiment || !category || urgency === undefined || !summary) {
       try {
         const apiKey = process.env.GROQ_API_KEY;
         if (apiKey) {
@@ -204,13 +248,14 @@ export async function POST(req: Request) {
 {
   "sentiment": "POSITIVE" | "NEUTRAL" | "NEGATIVE",
   "urgency": "High" | "Medium" | "Low",
-  "category": "short category name"
+  "category": "short category name",
+  "summary": "one clear sentence summary"
 }
 
 Feedback: "${rawText}"`,
               },
             ],
-            model: process.env.GROQ_MODEL || "openai/gpt-oss-20b",
+            model: process.env.GROQ_MODEL || "qwen/qwen3.8-27b",
             response_format: { type: "json_object" },
           });
 
@@ -220,6 +265,7 @@ Feedback: "${rawText}"`,
           sentiment = sentiment || aiData.sentiment || "NEUTRAL";
           category = category || aiData.category || "General";
           urgency = urgency || aiData.urgency || "Medium";
+          summary = summary || aiData.summary || rawText.slice(0, 100);
         }
       } catch (err) {
         console.error("AI Analysis warning during feedback creation:", err);
@@ -236,10 +282,14 @@ Feedback: "${rawText}"`,
     const newFeedback = await prisma.feedback.create({
       data: {
         content: rawText,
-        source: bodySource || "IN_APP",
+        source: bodySource || "Web Form",
         sentiment: sentiment || "NEUTRAL",
         category: category || "General",
         urgency: mappedUrgency,
+        customerName: customerName || null,
+        customerEmail: customerEmail || null,
+        summary: summary || null,
+        tags: Array.isArray(bodyTags) ? bodyTags : [],
         workspaceId: dbWorkspaceId,
         userId: dbUserId,
       },
@@ -262,11 +312,41 @@ export async function PATCH(req: Request) {
       return unauthorizedResponse("Please sign in to update feedback.");
     }
 
+    if (!canTriageFeedback(context.userRole)) {
+      return forbiddenResponse("Viewer role is read-only. Triaging feedback is restricted to Admins and Analysts.");
+    }
+
     const { searchParams } = new URL(req.url);
     const body = await req.json().catch(() => ({}));
     const id = searchParams.get("id") || body.id;
+    const ids = body.ids;
     const status = body.status;
     const category = body.category;
+
+    const updateData: any = {};
+    if (status && ["NEW", "REVIEWED", "ACTIONED"].includes(status)) {
+      updateData.status = status;
+    }
+    if (category) {
+      updateData.category = category;
+    }
+
+    // Support bulk triage updates for multiple selected feedback items
+    if (ids && Array.isArray(ids) && ids.length > 0) {
+      const batchResult = await prisma.feedback.updateMany({
+        where: {
+          id: { in: ids },
+          workspaceId: context.workspaceId,
+        },
+        data: updateData,
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `Updated status for ${batchResult.count} feedback items`,
+        count: batchResult.count,
+      });
+    }
 
     if (!id) {
       return NextResponse.json({ error: "Missing feedback ID" }, { status: 400 });
@@ -278,14 +358,6 @@ export async function PATCH(req: Request) {
 
     if (!feedback) {
       return NextResponse.json({ error: "Feedback not found in workspace" }, { status: 404 });
-    }
-
-    const updateData: any = {};
-    if (status && ["NEW", "REVIEWED", "ACTIONED"].includes(status)) {
-      updateData.status = status;
-    }
-    if (category) {
-      updateData.category = category;
     }
 
     const updated = await prisma.feedback.update({

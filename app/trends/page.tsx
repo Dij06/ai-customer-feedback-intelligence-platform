@@ -50,6 +50,24 @@ export default function TrendsPage() {
   const [selectedThemeId, setSelectedThemeId] = useState<string | null>(null);
   const [drillDownFeedbacks, setDrillDownFeedbacks] = useState<DrillDownFeedback[]>([]);
   const [drillDownLoading, setDrillDownLoading] = useState(false);
+  const [currentRole, setCurrentRole] = useState<"ADMIN" | "ANALYST" | "VIEWER" | null>(null);
+
+  useEffect(() => {
+    async function loadRole() {
+      try {
+        const res = await fetch("/api/workspace/members");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.currentRole) setCurrentRole(data.currentRole);
+        }
+      } catch (err) {
+        console.error("Error fetching workspace role:", err);
+      }
+    }
+    loadRole();
+  }, []);
+
+  const isAdmin = currentRole === "ADMIN";
 
   const fetchThemes = async () => {
     setLoading(true);
@@ -152,29 +170,33 @@ export default function TrendsPage() {
           <button
             onClick={fetchThemes}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg border border-slate-200 dark:border-slate-700/60 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-2xs"
+            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg border border-slate-200 dark:border-slate-700/60 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
             <span>Refresh</span>
           </button>
 
-          <button
-            onClick={() => setShowClearModal(true)}
-            disabled={clearing}
-            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg border border-rose-200 dark:border-rose-900/50 bg-white dark:bg-rose-950/20 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors shadow-2xs disabled:opacity-40"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span>{clearing ? "Clearing..." : "Clear All"}</span>
-          </button>
+          {isAdmin && (
+            <button
+              onClick={() => setShowClearModal(true)}
+              disabled={clearing}
+              className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg border border-rose-200 dark:border-rose-900/50 bg-white dark:bg-rose-950/20 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors shadow-2xs disabled:opacity-40 cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>{clearing ? "Clearing..." : "Clear All"}</span>
+            </button>
+          )}
 
-          <button
-            onClick={handleSeedData}
-            disabled={seeding}
-            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-xs transition-colors disabled:opacity-40"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>{seeding ? "Populating..." : "Add Sample Data"}</span>
-          </button>
+          {isAdmin && (
+            <button
+              onClick={handleSeedData}
+              disabled={seeding}
+              className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-xs transition-colors disabled:opacity-40 cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>{seeding ? "Populating..." : "Add Sample Data"}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -201,18 +223,22 @@ export default function TrendsPage() {
             No Feedback Trends Recorded Yet
           </h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            This workspace currently has 0 customer feedbacks. Click &ldquo;Add Sample Data&rdquo; to populate customer reviews across all topics.
+            {isAdmin
+              ? "This workspace currently has 0 customer feedbacks. Click \"Add Sample Data\" to populate customer reviews across all topics."
+              : "No customer feedback recorded in this workspace yet. An Administrator can import or seed data."}
           </p>
-          <div className="pt-2">
-            <button
-              onClick={handleSeedData}
-              disabled={seeding}
-              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-xs transition-colors disabled:opacity-40"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>{seeding ? "Populating..." : "Add Sample Data"}</span>
-            </button>
-          </div>
+          {isAdmin && (
+            <div className="pt-2">
+              <button
+                onClick={handleSeedData}
+                disabled={seeding}
+                className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-xs transition-colors disabled:opacity-40 cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>{seeding ? "Populating..." : "Add Sample Data"}</span>
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">

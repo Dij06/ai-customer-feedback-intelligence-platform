@@ -11,13 +11,12 @@ function getGroqClient() {
 
 // Active Groq production models
 const MODELS = [
-  process.env.GROQ_MODEL,
-  "openai/gpt-oss-20b",
+  process.env.GROQ_MODEL || "qwen/qwen3.8-27b",
   "qwen/qwen3.8-27b",
-  "openai/gpt-oss-120b",
   "groq/compound-mini",
-  "llama-3.3-70b-versatile",
-  "llama-3.1-8b-instant",
+  "openai/gpt-oss-120b",
+  "groq/compound",
+  "openai/gpt-oss-20b",
 ].filter(Boolean) as string[];
 
 async function getGroqCompletion(prompt: string) {
@@ -57,13 +56,14 @@ async function getGroqCompletion(prompt: string) {
 
 export async function GET(req: Request) {
   try {
-    const { searchParams } = new URL(req.url);
-    let workspaceId = searchParams.get("workspaceId");
+    const context = await getWorkspaceContext(req);
+    let workspaceId = context?.workspaceId;
 
-    if (!workspaceId || workspaceId === "undefined") {
-      const context = await getWorkspaceContext(req);
-      if (context) {
-        workspaceId = context.workspaceId;
+    if (!workspaceId) {
+      const { searchParams } = new URL(req.url);
+      const paramWorkspaceId = searchParams.get("workspaceId");
+      if (paramWorkspaceId && paramWorkspaceId !== "undefined") {
+        workspaceId = paramWorkspaceId;
       }
     }
 

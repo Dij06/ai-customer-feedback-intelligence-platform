@@ -97,7 +97,7 @@ This platform uses xAI Grok (grok-2-latest) as its main AI model.
 
 ### Setup steps:
 1. Get an API key from the xAI console at https://console.x.ai/
-2. Open your .env file inside my-app/ and add your key:
+2. Open your .env file in the project root and add your key:
    ```env
    GROK_API_KEY="xai-your-api-key-here"
    ```
@@ -131,12 +131,12 @@ When a brand new user signs up, the system automatically creates a new personal 
 ### 2. Installation
 ```bash
 git clone https://github.com/RahulBhandari0/AI-Customer-Feedback-Intelligence-Platform.git
-cd AI-Customer-Feedback-Intelligence-Platform/my-app
+cd AI-Customer-Feedback-Intelligence-Platform
 npm install
 ```
 
 ### 3. Environment Configuration
-Create a `.env` file inside `my-app/` with the following variables:
+Create a `.env` file in the project root with the following variables:
 ```env
 DATABASE_URL="postgresql://username:password@host/database?sslmode=require"
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_..."

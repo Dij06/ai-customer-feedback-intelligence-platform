@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { analyzeFeedbackWithAI } from '@/lib/ai';
+import { AlertCircle } from 'lucide-react';
 
 export default function NewFeedbackPage() {
   const router = useRouter();
@@ -13,12 +14,36 @@ export default function NewFeedbackPage() {
   const [customerEmail, setCustomerEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [currentRole, setCurrentRole] = useState<'ADMIN' | 'ANALYST' | 'VIEWER' | null>(null);
+
+  useEffect(() => {
+    async function loadRole() {
+      try {
+        const res = await fetch('/api/workspace/members');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.currentRole) {
+            setCurrentRole(data.currentRole);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching role:', err);
+      }
+    }
+    loadRole();
+  }, []);
+
+  const isViewer = currentRole === 'VIEWER';
 
   // Real-time preview analysis
   const liveAnalysis = content.trim() ? analyzeFeedbackWithAI(content) : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isViewer) {
+      setError('Viewer role is read-only. Ingesting feedback is restricted to Admins and Analysts.');
+      return;
+    }
     if (!content.trim()) {
       setError('Please provide feedback content');
       return;
@@ -40,10 +65,10 @@ export default function NewFeedbackPage() {
       });
 
       const data = await res.json();
-      if (data.success) {
+      if (res.ok && (data.success || data.id)) {
         router.push('/feedback');
       } else {
-        setError(data.error || 'Failed to submit feedback');
+        setError(data.error || data.message || 'Failed to submit feedback');
       }
     } catch (err) {
       console.error(err);
@@ -117,6 +142,12 @@ export default function NewFeedbackPage() {
           {/* Feedback Form */}
           <div className="lg:col-span-2">
             <form onSubmit={handleSubmit} className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-5">
+              {isViewer && (
+                <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 text-amber-800 dark:text-amber-200 text-xs font-semibold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <span>You have the Viewer role (Read-Only). Only Admins and Analysts can submit customer feedback.</span>
+                </div>
+              )}
               {error && (
                 <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-500/15 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs font-semibold">
                   {error}
@@ -193,8 +224,8 @@ export default function NewFeedbackPage() {
                 </Link>
                 <button
                   type="submit"
-                  disabled={submitting}
-                  className="px-5 py-2.5 text-xs sm:text-sm font-semibold text-white bg-[#2D68FF] hover:bg-blue-600 rounded-xl shadow-md shadow-[#2D68FF]/20 transition-all flex items-center gap-2"
+                  disabled={submitting || isViewer}
+                  className="px-5 py-2.5 text-xs sm:text-sm font-semibold text-white bg-[#2D68FF] hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-md shadow-[#2D68FF]/20 transition-all flex items-center gap-2 cursor-pointer"
                 >
                   {submitting ? 'Saving...' : 'Save Feedback'}
                 </button>

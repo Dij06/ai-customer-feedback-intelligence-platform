@@ -4,13 +4,14 @@ import { getWorkspaceContext } from "@/lib/rbac";
 
 export async function GET(req: Request) {
   try {
-    const { searchParams } = new URL(req.url);
-    let workspaceId = searchParams.get("workspaceId");
+    const context = await getWorkspaceContext(req);
+    let workspaceId = context?.workspaceId;
 
-    if (!workspaceId || workspaceId === "undefined") {
-      const context = await getWorkspaceContext(req);
-      if (context) {
-        workspaceId = context.workspaceId;
+    if (!workspaceId) {
+      const { searchParams } = new URL(req.url);
+      const paramWorkspaceId = searchParams.get("workspaceId");
+      if (paramWorkspaceId && paramWorkspaceId !== "undefined") {
+        workspaceId = paramWorkspaceId;
       }
     }
 
@@ -23,7 +24,7 @@ export async function GET(req: Request) {
           { name: "Negative", value: 0, fill: "#EF4444" },
         ],
         urgencyStats: [
-          { name: "Urgent ⚠️", count: 0, fill: "#F59E0B" },
+          { name: "High Urgency", count: 0, fill: "#F59E0B" },
           { name: "Normal", count: 0, fill: "#3B82F6" },
         ],
       });
@@ -34,19 +35,19 @@ export async function GET(req: Request) {
     });
 
     const positiveCount = await prisma.feedback.count({
-      where: { workspaceId, sentiment: "POSITIVE" },
+      where: { workspaceId, sentiment: { equals: "POSITIVE", mode: "insensitive" } },
     });
 
     const neutralCount = await prisma.feedback.count({
-      where: { workspaceId, sentiment: "NEUTRAL" },
+      where: { workspaceId, sentiment: { equals: "NEUTRAL", mode: "insensitive" } },
     });
 
     const negativeCount = await prisma.feedback.count({
-      where: { workspaceId, sentiment: "NEGATIVE" },
+      where: { workspaceId, sentiment: { equals: "NEGATIVE", mode: "insensitive" } },
     });
 
     const urgentCount = await prisma.feedback.count({
-      where: { workspaceId, urgency: "High" },
+      where: { workspaceId, urgency: { equals: "High", mode: "insensitive" } },
     });
 
     return NextResponse.json({
@@ -57,7 +58,7 @@ export async function GET(req: Request) {
         { name: "Negative", value: negativeCount, fill: "#EF4444" },
       ],
       urgencyStats: [
-        { name: "Urgent ⚠️", count: urgentCount, fill: "#F59E0B" },
+        { name: "High Urgency", count: urgentCount, fill: "#F59E0B" },
         { name: "Normal", count: totalFeedbacks - urgentCount, fill: "#3B82F6" },
       ],
     });

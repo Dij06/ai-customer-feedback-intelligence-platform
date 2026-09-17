@@ -34,30 +34,35 @@ interface FeedbackPreview {
 
 export default function DashboardPage() {
   const [workspace, setWorkspace] = useState<any>(null);
+  const [currentRole, setCurrentRole] = useState<"ADMIN" | "ANALYST" | "VIEWER" | null>(null);
   const [recentFeedbacks, setRecentFeedbacks] = useState<FeedbackPreview[]>([]);
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
+
+  const isAdmin = currentRole === "ADMIN";
+  const canEdit = currentRole === "ADMIN" || currentRole === "ANALYST";
 
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      // 1. Get workspace context
-      let activeWsId: string | null = null;
-      const wsRes = await fetch("/api/workspace/members");
+      // 1. Fetch workspace context and recent feedback concurrently
+      const [wsRes, fbRes] = await Promise.all([
+        fetch("/api/workspace/members"),
+        fetch("/api/feedback?limit=6"),
+      ]);
+
       if (wsRes.ok) {
         const wsData = await wsRes.json();
         if (wsData.success && wsData.workspace) {
           setWorkspace(wsData.workspace);
-          activeWsId = wsData.workspace.id;
+          if (wsData.currentRole) {
+            setCurrentRole(wsData.currentRole);
+          }
         }
       }
 
-      // 2. Get recent feedback
-      const fbUrl = activeWsId ? `/api/feedback?workspaceId=${activeWsId}&limit=6` : `/api/feedback?limit=6`;
-      const fbRes = await fetch(fbUrl);
       if (fbRes.ok) {
         const fbData = await fbRes.json();
         if (Array.isArray(fbData)) {
@@ -66,7 +71,6 @@ export default function DashboardPage() {
           setRecentFeedbacks(fbData.feedbacks.slice(0, 6));
         }
       }
-      setRefreshKey((k) => k + 1);
     } catch (err) {
       console.error("Error loading dashboard:", err);
     } finally {
@@ -155,24 +159,28 @@ export default function DashboardPage() {
 
         {/* Header Action Buttons */}
         <div className="flex items-center gap-2 flex-wrap shrink-0">
-          <button
-            onClick={handleClearData}
-            disabled={seeding || clearing}
-            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-semibold text-rose-600 dark:text-rose-400 bg-white dark:bg-rose-950/20 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-800/40 transition-colors shadow-2xs disabled:opacity-40"
-            title="Reset this workspace to 0 feedbacks"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span>{clearing ? "Clearing..." : "Clear Data"}</span>
-          </button>
+          {isAdmin && (
+            <button
+              onClick={handleClearData}
+              disabled={seeding || clearing}
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-semibold text-rose-600 dark:text-rose-400 bg-white dark:bg-rose-950/20 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-800/40 transition-colors shadow-2xs disabled:opacity-40 cursor-pointer"
+              title="Reset this workspace to 0 feedbacks"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>{clearing ? "Clearing..." : "Clear Data"}</span>
+            </button>
+          )}
 
-          <button
-            onClick={handleSeedData}
-            disabled={seeding || clearing}
-            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-xs transition-all disabled:opacity-40"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>{seeding ? "Populating..." : "Add Sample Data"}</span>
-          </button>
+          {isAdmin && (
+            <button
+              onClick={handleSeedData}
+              disabled={seeding || clearing}
+              className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-xs transition-all disabled:opacity-40 cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>{seeding ? "Populating..." : "Add Sample Data"}</span>
+            </button>
+          )}
 
           <ExportPdfButton />
         </div>
@@ -180,12 +188,24 @@ export default function DashboardPage() {
 
       {/* 1. Analytics Charts Section (Sentiment Breakdown & Volume Timeline) */}
       <div className="w-full">
-        <Analytics key={`analytics-${workspace?.id}-${refreshKey}`} workspaceId={workspace?.id} />
+        {workspace?.id ? (
+          <Analytics workspaceId={workspace.id} />
+        ) : (
+          <div className="p-6 rounded-2xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 animate-pulse h-64 flex items-center justify-center text-slate-400 text-xs">
+            Loading analytics...
+          </div>
+        )}
       </div>
 
       {/* 2. Single Best VoC Intelligence Section */}
       <div className="w-full">
-        <VocReportCard key={`voc-${workspace?.id}-${refreshKey}`} workspaceId={workspace?.id} />
+        {workspace?.id ? (
+          <VocReportCard workspaceId={workspace.id} />
+        ) : (
+          <div className="p-6 rounded-2xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 animate-pulse h-48 flex items-center justify-center text-slate-400 text-xs">
+            Synthesizing Voice of Customer brief...
+          </div>
+        )}
       </div>
 
       {/* 3. Recent Urgent Customer Feedback Feed */}
@@ -215,13 +235,20 @@ export default function DashboardPage() {
         {recentFeedbacks.length === 0 ? (
           <div className="py-10 text-center space-y-3">
             <Inbox className="w-8 h-8 mx-auto text-slate-400" />
-            <p className="text-xs text-slate-500">No feedback items yet.</p>
-            <button
-              onClick={handleSeedData}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl"
-            >
-              Add Sample Data Now
-            </button>
+            <p className="text-xs text-slate-500">
+              {isAdmin
+                ? "No feedback items yet. Click below to populate realistic customer reviews."
+                : "No feedback items yet in this workspace."}
+            </p>
+            {isAdmin && (
+              <button
+                onClick={handleSeedData}
+                disabled={seeding}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl cursor-pointer disabled:opacity-50"
+              >
+                {seeding ? "Populating..." : "Add Sample Data Now"}
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -260,25 +287,31 @@ export default function DashboardPage() {
                     By: {item.customerName || "Customer"}
                   </span>
 
-                  <div className="flex items-center gap-1">
-                    {(["NEW", "REVIEWED", "ACTIONED"] as const).map((s) => (
-                      <button
-                        key={s}
-                        onClick={() => handleTriage(item.id, s)}
-                        className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                          item.status === s
-                            ? s === "ACTIONED"
-                              ? "bg-emerald-600 text-white"
-                              : s === "REVIEWED"
-                              ? "bg-blue-600 text-white"
-                              : "bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900"
-                            : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-                        }`}
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
+                  {canEdit ? (
+                    <div className="flex items-center gap-1">
+                      {(["NEW", "REVIEWED", "ACTIONED"] as const).map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => handleTriage(item.id, s)}
+                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded cursor-pointer ${
+                            item.status === s
+                              ? s === "ACTIONED"
+                                ? "bg-emerald-600 text-white"
+                                : s === "REVIEWED"
+                                ? "bg-blue-600 text-white"
+                                : "bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900"
+                              : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                          }`}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                      {item.status || "NEW"}
+                    </span>
+                  )}
                 </div>
               </div>
             ))}

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, MessageSquare, ChevronDown } from 'lucide-react';
 
 interface CitationItem {
   id: string;
@@ -73,13 +73,13 @@ export default function AskLoopPage() {
       id: 'welcome',
       role: 'assistant',
       content:
-        "Hello! I'm Ask LOOP, your AI customer intelligence assistant. Ask me anything in plain English about what customers like, top complaints, bug reports, or feature requests.",
+        "Ask me anything about your customer feedback, top complaints, or requested features.",
       timestamp: 'Just now',
       suggestedFollowUps: [
-        'What are users saying about onboarding & workspace setup?',
-        'Why are customers complaining about billing and invoices?',
         'What features are customers praising the most?',
-        'Are there any critical bugs blocking engineering teams?',
+        'What are the most common customer complaints?',
+        'Are there any urgent bugs reported recently?',
+        'What do users say about speed and reliability?',
       ],
     },
   ]);
@@ -147,11 +147,11 @@ export default function AskLoopPage() {
                 <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
               <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-                Ask LOOP AI
+                Ask Loop
               </h1>
             </div>
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-              Ask questions in plain English and get honest answers backed by real customer reviews.
+              Ask questions about customer feedback and get concise answers backed by real customer reviews.
             </p>
           </div>
 
@@ -186,13 +186,14 @@ export default function AskLoopPage() {
                     : 'bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800/80 text-slate-800 dark:text-slate-200 rounded-bl-xs'
                 }`}
               >
-                {/* Provider tag */}
+                {/* Assistant header */}
                 {msg.role === 'assistant' && (
-                  <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-slate-100 dark:border-slate-800 text-2xs text-slate-400">
-                    <span className="font-semibold flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
-                      <span className="w-2 h-2 rounded-full bg-blue-600" />
-                      {msg.provider || 'Ask LOOP AI'}
+                  <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-slate-100 dark:border-slate-800 text-xs text-slate-400">
+                    <span className="font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                      Loop Assistant
                     </span>
+                    <span className="text-[11px] text-slate-400">{msg.timestamp}</span>
                   </div>
                 )}
 
@@ -204,40 +205,36 @@ export default function AskLoopPage() {
                 {/* Citations and customer quotes (collapsible) */}
                 {msg.citedItems && msg.citedItems.length > 0 && (
                   <details className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 group">
-                    <summary className="cursor-pointer select-none text-2xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 flex items-center justify-between list-none">
+                    <summary className="cursor-pointer select-none text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 flex items-center justify-between list-none">
                       <span className="flex items-center gap-1.5">
-                        <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                        </svg>
-                        Customer Quotes &amp; Evidence ({msg.citedItems.length})
+                        <MessageSquare className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Referenced customer quotes ({msg.citedItems.length})</span>
                       </span>
-                      <span className="text-2xs text-slate-400 group-open:rotate-180 transition-transform">
-                        ▾
-                      </span>
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-open:rotate-180 transition-transform duration-200" />
                     </summary>
                     <div className="grid grid-cols-1 gap-2 mt-2.5">
                       {msg.citedItems.map((cite, i) => (
                         <div
                           key={cite.id || i}
-                          className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800/80 text-xs text-slate-700 dark:text-slate-300"
+                          className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300"
                         >
-                          <div className="flex items-center justify-between text-2xs text-slate-400 mb-1">
+                          <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
                             <span className="font-medium text-slate-600 dark:text-slate-400">
                               {cite.source} · {cite.customerName || 'Customer'}
                             </span>
                             <span
                               className={`font-semibold ${
-                                cite.sentiment === 'Positive'
-                                  ? 'text-emerald-600'
-                                  : cite.sentiment === 'Negative'
-                                  ? 'text-rose-600'
+                                (cite.sentiment || '').toLowerCase() === 'positive'
+                                  ? 'text-emerald-600 dark:text-emerald-400'
+                                  : (cite.sentiment || '').toLowerCase() === 'negative'
+                                  ? 'text-rose-600 dark:text-rose-400'
                                   : 'text-slate-400'
                               }`}
                             >
                               {cite.sentiment}
                             </span>
                           </div>
-                          <p className="italic text-slate-700 dark:text-slate-300">&ldquo;{cite.content}&rdquo;</p>
+                          <p className="text-slate-700 dark:text-slate-300">&ldquo;{cite.content}&rdquo;</p>
                         </div>
                       ))}
                     </div>
@@ -268,7 +265,7 @@ export default function AskLoopPage() {
             <div className="flex items-start">
               <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-500 flex items-center gap-3">
                 <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />
-                Searching through customer feedback to write your answer...
+                Reviewing customer feedback...
               </div>
             </div>
           )}
@@ -293,9 +290,9 @@ export default function AskLoopPage() {
             <button
               type="submit"
               disabled={loading || !query.trim()}
-              className="px-5 py-3 text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-500 disabled:opacity-40 rounded-xl transition-all shadow-xs shrink-0"
+              className="px-5 py-3 text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-500 disabled:opacity-40 rounded-xl transition-all shadow-xs shrink-0 cursor-pointer"
             >
-              {loading ? 'Analyzing...' : 'Ask AI'}
+              {loading ? 'Searching...' : 'Ask'}
             </button>
           </form>
         </div>
